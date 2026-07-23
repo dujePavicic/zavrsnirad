@@ -117,7 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'hr'
 
 TIME_ZONE = 'UTC'
 
@@ -157,3 +157,10 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+AUTH_USER_MODEL = "core.Korisnik"
+
+AUTHENTICATION_BACKENDS = [
+    "core.prijava.EmailIliKorisnickoImeBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
