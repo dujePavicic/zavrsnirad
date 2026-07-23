@@ -1,6 +1,6 @@
 # Python
 backend/.venv/
-_pycache_/
+__pycache__/
 *.py[cod]
 
 # Tajni podaci
@@ -13,13 +13,9 @@ staticfiles/
 media/
 
 # VS Code
-.vscode/
-
-# Flutter
-frontend/.dart_tool/
-frontend/build/
-frontend/.flutter-plugins
-frontend/.flutter-plugins-dependencies
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # Operativni sustav
 .DS_Store
