@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'api_config.dart';
 
 void main() {
   runApp(const ZavrsniApp());
@@ -39,7 +40,7 @@ class _BackendStatusPageState extends State<BackendStatusPage> {
   Future<void> loadBackendStatus() async {
     try {
       final response = await http.get(
-        Uri.parse('http://127.0.0.1:8000/api/status/'),
+        Uri.parse('${ApiConfig.baseUrl}/api/status/'),
       );
 
       if (response.statusCode == 200) {
