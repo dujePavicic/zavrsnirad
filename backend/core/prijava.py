@@ -13,7 +13,7 @@ class EmailIliKorisnickoImeBackend(ModelBackend):
 
         try:
             korisnik = ModelKorisnika.objects.get(
-                Q(emailiexact=prijava) | Q(korisnicko_imeiexact=prijava)
+                Q(email__iexact=prijava) | Q(korisnicko_ime__iexact=prijava)
             )
         except ModelKorisnika.DoesNotExist:
             ModelKorisnika().set_password(password)
