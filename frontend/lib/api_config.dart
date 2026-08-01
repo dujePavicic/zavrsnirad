@@ -11,4 +11,8 @@ class ApiConfig {
     }
     return 'http://127.0.0.1:8000';
   }
+
+  static String get registracija => '$baseUrl/api/registracija/';
+  static String get prijava => '$baseUrl/api/prijava/';
+  static String get osvjeziToken => '$baseUrl/api/token/osvjezi/';
 }
