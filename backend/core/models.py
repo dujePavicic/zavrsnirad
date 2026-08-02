@@ -9,6 +9,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.validators import MinValueValidator
 
+from decimal import Decimal
+
 def provjeri_korisnicko_ime(vrijednost):
     if "@" in vrijednost:
         raise ValidationError("Korisničko ime ne smije sadržavati znak @.")
@@ -141,7 +143,7 @@ class Transakcija(models.Model):
         "tip", max_length=10, choices=TipTransakcije.choices, default=TipTransakcije.TROSAK
     )
     iznos = models.DecimalField(
-        "iznos", max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)]
+        "iznos", max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
     kategorija = models.ForeignKey(
         Kategorija,
@@ -201,7 +203,7 @@ class Budzet(models.Model):
     godina = models.PositiveSmallIntegerField("godina")
     mjesec = models.PositiveSmallIntegerField("mjesec")
     iznos = models.DecimalField(
-        "iznos", max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)]
+        "iznos", max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
 
     class Meta:
