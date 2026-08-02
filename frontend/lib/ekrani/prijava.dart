@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../themes/default_tema.dart';
+import '../assets/logo.dart';
 import 'registracija.dart';
 
 class PrijavaEkran extends StatefulWidget {
@@ -65,19 +66,7 @@ class _PrijavaEkranState extends State<PrijavaEkran> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // ---- ZAGLAVLJE ----
-                    Container(
-                      width: 68,
-                      height: 68,
-                      decoration: BoxDecoration(
-                        color: shema.primaryContainer,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        Icons.account_balance_wallet,
-                        size: 34,
-                        color: shema.onPrimaryContainer,
-                      ),
-                    ),
+                    const Logo(),
                     const SizedBox(height: 18),
                     Text(
                       'Dobro došli natrag',
@@ -85,7 +74,7 @@ class _PrijavaEkranState extends State<PrijavaEkran> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Prijavi se u svoj račun',
+                      'Prijavite se u svoj račun',
                       style: TextStyle(color: shema.onSurfaceVariant),
                     ),
                     const SizedBox(height: 26),
@@ -105,11 +94,11 @@ class _PrijavaEkranState extends State<PrijavaEkran> {
                             controller: _identifikatorController,
                             decoration: izgledPolja(
                               oznaka: 'Email ili korisničko ime',
-                              natuknica: 'imeprezime@mail.hr',
+                              natuknica: ' ',
                               ikona: Icons.person_outline,
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Unesi email ili korisničko ime'
+                                ? 'Unesite email ili korisničko ime'
                                 : null,
                           ),
                           const SizedBox(height: 16),
@@ -120,7 +109,7 @@ class _PrijavaEkranState extends State<PrijavaEkran> {
                             obscureText: _lozinkaSkrivena,
                             decoration: izgledPolja(
                               oznaka: 'Lozinka',
-                              natuknica: '••••••••',
+                              natuknica: ' ',
                               ikona: Icons.lock_outline,
                               sufiks: IconButton(
                                 icon: Icon(
@@ -133,7 +122,7 @@ class _PrijavaEkranState extends State<PrijavaEkran> {
                               ),
                             ),
                             validator: (v) => (v == null || v.isEmpty)
-                                ? 'Unesi lozinku'
+                                ? 'Unesite lozinku'
                                 : null,
                           ),
                           const SizedBox(height: 20),
@@ -177,11 +166,11 @@ class _PrijavaEkranState extends State<PrijavaEkran> {
                       },
                       child: Text.rich(
                         TextSpan(
-                          text: 'Nemaš račun? ',
+                          text: 'Nemate račun? ',
                           style: TextStyle(color: shema.onSurfaceVariant),
                           children: [
                             TextSpan(
-                              text: 'Registriraj se',
+                              text: 'Registrirajte se',
                               style: TextStyle(
                                 color: shema.primary,
                                 fontWeight: FontWeight.w500,

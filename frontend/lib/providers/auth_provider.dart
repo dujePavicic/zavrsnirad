@@ -29,7 +29,6 @@ class AuthPruzatelj extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Prijava korisnika (identifikator = email ili korisničko ime).
   Future<bool> prijava({
     required String identifikator,
     required String lozinka,
@@ -37,6 +36,10 @@ class AuthPruzatelj extends ChangeNotifier {
     _postaviUcitavanje();
     try {
       await _servis.prijavi(identifikator: identifikator, lozinka: lozinka);
+      // Dohvati podatke korisnika za kasnije ekrane (nije kritično za prijavu).
+      try {
+        _korisnik = await _servis.dohvatiJa();
+      } catch (_) {}
       _status = AuthStatus.prijavljen;
       _greska = null;
       notifyListeners();

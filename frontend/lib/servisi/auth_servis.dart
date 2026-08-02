@@ -84,15 +84,64 @@ class AuthServis {
     );
 
     if (odgovor.statusCode == 200) {
-      final tijelo = jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
-      await _tokenSpremiste.spremiAccess(tijelo['access'] as String);
+      final tijelo =
+          jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      final noviAccess = tijelo['access'] as String;
+      final noviRefresh = tijelo['refresh'] as String?;
+
+      if (noviRefresh != null) {
+        await _tokenSpremiste.spremiTokene(
+          access: noviAccess,
+          refresh: noviRefresh,
+        );
+      } else {
+        await _tokenSpremiste.spremiAccess(noviAccess);
+      }
     } else {
       throw AuthGreska('Sesija je istekla. Prijavi se ponovno.');
     }
   }
 
+/// Dohvaća podatke trenutno prijavljenog korisnika (/api/ja/).
+  Future<Korisnik> dohvatiJa() async {
+    final access = await _tokenSpremiste.dohvatiAccess();
+    if (access == null) {
+      throw AuthGreska('Nisi prijavljen.');
+    }
+
+    final odgovor = await http.get(
+      Uri.parse(ApiConfig.ja),
+      headers: {'Authorization': 'Bearer $access'},
+    );
+
+    if (odgovor.statusCode == 200) {
+      final tijelo =
+          jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      return Korisnik.izJsona(tijelo);
+    } else {
+      throw AuthGreska('Ne mogu dohvatiti podatke korisnika.');
+    }
+  }
+
+
+
+
+
   /// Odjava — briše spremljene tokene.
+  /// Odjava — poništava refresh na serveru (crna lista), pa briše lokalne tokene.
   Future<void> odjavi() async {
+    final refresh = await _tokenSpremiste.dohvatiRefresh();
+    if (refresh != null) {
+      try {
+        await http.post(
+          Uri.parse(ApiConfig.odjava),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'refresh': refresh}),
+        );
+      } catch (_) {
+        // Ako poziv padne (nema mreže), svejedno nastavljamo s lokalnom odjavom.
+      }
+    }
     await _tokenSpremiste.obrisiTokene();
   }
 
@@ -100,7 +149,7 @@ class AuthServis {
   String _izvuciGresku(http.Response odgovor) {
     try {
       final tijelo = jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
-      // DRF obično vrati {"detail": "..."} ili {"polje": ["poruka"], ...}
+
       if (tijelo.containsKey('detail')) {
         return tijelo['detail'].toString();
       }
