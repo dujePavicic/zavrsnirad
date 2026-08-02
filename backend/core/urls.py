@@ -1,7 +1,14 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from . import views
+
+usmjerivac = DefaultRouter()
+usmjerivac.register("kategorije", views.KategorijaViewSet, basename="kategorija")
+usmjerivac.register("transakcije", views.TransakcijaViewSet, basename="transakcija")
+usmjerivac.register("budzeti", views.BudzetViewSet, basename="budzet")
+usmjerivac.register("racuni", views.RacunViewSet, basename="racun")
 
 urlpatterns = [
     path("registracija/", views.RegistracijaPogled.as_view(), name="registracija"),
@@ -9,4 +16,6 @@ urlpatterns = [
     path("token/osvjezi/", TokenRefreshView.as_view(), name="osvjezi-token"),
     path("ja/", views.JaPogled.as_view(), name="ja"),
     path("odjava/", views.OdjavaPogled.as_view(), name="odjava"),
+    path("pregled/", views.PregledPogled.as_view(), name="pregled"),
+    path("", include(usmjerivac.urls)),
 ]

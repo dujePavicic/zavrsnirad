@@ -119,7 +119,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'hr'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "Europe/Zagreb"
 
 USE_I18N = True
 
