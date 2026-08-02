@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'ekrani/prijava.dart';
 import 'themes/default_tema.dart';
+import '../ekrani/glavni_ekran.dart';
 
 void main() {
   runApp(
@@ -47,7 +48,7 @@ class PUTOKAZ extends StatelessWidget {
           body: Center(child: CircularProgressIndicator()),
         );
       case AuthStatus.prijavljen:
-        return const PocetniEkran();
+        return const GlavniEkran();
       case AuthStatus.ucitavanje:
       case AuthStatus.odjavljen:
         return const PrijavaEkran();
@@ -55,28 +56,3 @@ class PUTOKAZ extends StatelessWidget {
   }
 }
 
-/// Privremeni početni ekran nakon prijave — pravi ćemo u kasnijem koraku.
-class PocetniEkran extends StatelessWidget {
-  const PocetniEkran({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final auth = context.read<AuthPruzatelj>();
-    return Scaffold(
-      appBar: AppBar(title: const Text('Moje financije')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Uspješno si prijavljen.'),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => auth.odjava(),
-              child: const Text('Odjava'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

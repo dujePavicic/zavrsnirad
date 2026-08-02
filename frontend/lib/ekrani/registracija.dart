@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../themes/default_tema.dart';
+import '../assets/logo.dart';
 
 class RegistracijaEkran extends StatefulWidget {
   const RegistracijaEkran({super.key});
@@ -20,6 +21,7 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
   final _lozinkaController = TextEditingController();
   final _potvrdaController = TextEditingController();
   bool _lozinkaSkrivena = true;
+  bool _potvrdaLozinkaSkrivena = true;
 
   @override
   void dispose() {
@@ -81,27 +83,15 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // ---- ZAGLAVLJE ----
-                    Container(
-                      width: 68,
-                      height: 68,
-                      decoration: BoxDecoration(
-                        color: shema.primaryContainer,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        Icons.person_add_alt_1,
-                        size: 34,
-                        color: shema.onPrimaryContainer,
-                      ),
-                    ),
+                    const Logo(),
                     const SizedBox(height: 18),
                     Text(
-                      'Napravi račun',
+                      'Napravite račun',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Ispuni podatke za novi račun',
+                      'Ispunite podatke za novi račun',
                       style: TextStyle(color: shema.onSurfaceVariant),
                     ),
                     const SizedBox(height: 26),
@@ -130,7 +120,7 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                                   ),
                                   validator: (v) =>
                                       (v == null || v.trim().isEmpty)
-                                          ? 'Unesi ime'
+                                          ? 'Unesite ime'
                                           : null,
                                 ),
                               ),
@@ -145,7 +135,7 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                                   ),
                                   validator: (v) =>
                                       (v == null || v.trim().isEmpty)
-                                          ? 'Unesi prezime'
+                                          ? 'Unesite prezime'
                                           : null,
                                 ),
                               ),
@@ -158,11 +148,11 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                             controller: _korisnickoImeController,
                             decoration: izgledPolja(
                               oznaka: 'Korisničko ime',
-                              natuknica: 'ime',
+                              natuknica: 'korisnickoime123',
                               ikona: Icons.person_outline,
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Unesi korisničko ime'
+                                ? 'Unesite korisničko ime'
                                 : null,
                           ),
                           const SizedBox(height: 16),
@@ -178,7 +168,7 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                             ),
                             validator: (v) {
                               final tekst = (v ?? '').trim();
-                              if (tekst.isEmpty) return 'Unesi email';
+                              if (tekst.isEmpty) return 'Unesite email';
                               final uzorak = RegExp(
                                   r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                               if (!uzorak.hasMatch(tekst)) {
@@ -195,7 +185,7 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                             obscureText: _lozinkaSkrivena,
                             decoration: izgledPolja(
                               oznaka: 'Lozinka',
-                              natuknica: '••••••••',
+                              natuknica: 'lozinka123',
                               ikona: Icons.lock_outline,
                               sufiks: IconButton(
                                 icon: Icon(
@@ -209,7 +199,7 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                             ),
                             validator: (v) {
                               if (v == null || v.isEmpty) {
-                                return 'Unesi lozinku';
+                                return 'Unesite lozinku';
                               }
                               if (v.length < 8) {
                                 return 'Lozinka mora imati barem 8 znakova';
@@ -222,15 +212,24 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                           // Potvrda lozinke (mora se poklapati):
                           TextFormField(
                             controller: _potvrdaController,
-                            obscureText: _lozinkaSkrivena,
+                            obscureText: _potvrdaLozinkaSkrivena,
                             decoration: izgledPolja(
                               oznaka: 'Potvrdi lozinku',
-                              natuknica: '••••••••',
+                              natuknica: 'lozinka123',
                               ikona: Icons.lock_outline,
+                              sufiks: IconButton(
+                                icon: Icon(
+                                  _potvrdaLozinkaSkrivena
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                                onPressed: () => setState(
+                                    () => _potvrdaLozinkaSkrivena = !_potvrdaLozinkaSkrivena),
+                              ),
                             ),
                             validator: (v) {
                               if (v == null || v.isEmpty) {
-                                return 'Ponovi lozinku';
+                                return 'Ponovite lozinku';
                               }
                               if (v != _lozinkaController.text) {
                                 return 'Lozinke se ne poklapaju';
@@ -274,11 +273,11 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
                       onPressed: () => Navigator.pop(context),
                       child: Text.rich(
                         TextSpan(
-                          text: 'Već imaš račun? ',
+                          text: 'Već imate račun? ',
                           style: TextStyle(color: shema.onSurfaceVariant),
                           children: [
                             TextSpan(
-                              text: 'Prijavi se',
+                              text: 'Prijavite se',
                               style: TextStyle(
                                 color: shema.primary,
                                 fontWeight: FontWeight.w500,
