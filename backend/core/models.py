@@ -6,7 +6,8 @@ from django.contrib.auth.models import (
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
-
+from django.conf import settings
+from django.core.validators import MinValueValidator
 
 def provjeri_korisnicko_ime(vrijednost):
     if "@" in vrijednost:
@@ -70,3 +71,148 @@ class Korisnik(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+class Kategorija(models.Model):
+    """Kategorija troska ili prihoda.
+
+    Ako je vlasnik prazan, kategorija je sustavska i vide je svi korisnici.
+    Ako je popunjen, kategorija pripada samo tom korisniku.
+    """
+
+    class TipKategorije(models.TextChoices):
+        TROSAK = "TROSAK", "Trošak"
+        PRIHOD = "PRIHOD", "Prihod"
+
+    naziv = models.CharField("naziv", max_length=100)
+    tip = models.CharField(
+        "tip", max_length=10, choices=TipKategorije.choices, default=TipKategorije.TROSAK
+    )
+    boja = models.CharField("boja", max_length=7, default="#0F6E56")
+    ikona = models.CharField("ikona", max_length=50, blank=True)
+    vlasnik = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="vlasnik",
+        on_delete=models.CASCADE,
+        related_name="kategorije",
+        null=True,
+        blank=True,
+        help_text="Prazno znaci sustavska kategorija dostupna svima.",
+    )
+
+    class Meta:
+        verbose_name = "kategorija"
+        verbose_name_plural = "kategorije"
+        ordering = ["naziv"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["naziv"],
+                condition=models.Q(vlasnik__isnull=True),
+                name="jedinstvena_sustavska_kategorija",
+            ),
+            models.UniqueConstraint(
+                fields=["vlasnik", "naziv"],
+                condition=models.Q(vlasnik__isnull=False),
+                name="jedinstvena_korisnicka_kategorija",
+            ),
+        ]
+
+    def __str__(self):
+        return self.naziv
+
+    @property
+    def je_sustavska(self):
+        return self.vlasnik_id is None
+
+
+class Transakcija(models.Model):
+    """Jedan prihod ili trosak korisnika."""
+
+    class TipTransakcije(models.TextChoices):
+        TROSAK = "TROSAK", "Trošak"
+        PRIHOD = "PRIHOD", "Prihod"
+
+    korisnik = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="korisnik",
+        on_delete=models.CASCADE,
+        related_name="transakcije",
+    )
+    tip = models.CharField(
+        "tip", max_length=10, choices=TipTransakcije.choices, default=TipTransakcije.TROSAK
+    )
+    iznos = models.DecimalField(
+        "iznos", max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)]
+    )
+    kategorija = models.ForeignKey(
+        Kategorija,
+        verbose_name="kategorija",
+        on_delete=models.SET_NULL,
+        related_name="transakcije",
+        null=True,
+        blank=True,
+    )
+    datum = models.DateField("datum")
+    opis = models.CharField("opis", max_length=200, blank=True)
+    datum_unosa = models.DateTimeField("datum unosa", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "transakcija"
+        verbose_name_plural = "transakcije"
+        ordering = ["-datum", "-datum_unosa"]
+        indexes = [models.Index(fields=["korisnik", "-datum"])]
+
+    def __str__(self):
+        return f"{self.get_tip_display()} {self.iznos} € ({self.datum})"
+
+
+class Racun(models.Model):
+    """Skenirani racun iz digitalne arhive, uvijek vezan uz transakciju."""
+
+    transakcija = models.OneToOneField(
+        Transakcija,
+        verbose_name="transakcija",
+        on_delete=models.CASCADE,
+        related_name="racun",
+    )
+    trgovina = models.CharField("trgovina", max_length=150, blank=True)
+    datum_izdavanja = models.DateField("datum izdavanja", null=True, blank=True)
+    slika = models.ImageField("slika", upload_to="racuni/%Y/%m/", null=True, blank=True)
+    prepoznati_tekst = models.TextField("prepoznati tekst", blank=True)
+    datum_spremanja = models.DateTimeField("datum spremanja", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "račun"
+        verbose_name_plural = "računi"
+        ordering = ["-datum_spremanja"]
+
+    def __str__(self):
+        return self.trgovina or f"Račun #{self.pk}"
+
+
+class Budzet(models.Model):
+    """Mjesecni budzet korisnika."""
+
+    korisnik = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="korisnik",
+        on_delete=models.CASCADE,
+        related_name="budzeti",
+    )
+    godina = models.PositiveSmallIntegerField("godina")
+    mjesec = models.PositiveSmallIntegerField("mjesec")
+    iznos = models.DecimalField(
+        "iznos", max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)]
+    )
+
+    class Meta:
+        verbose_name = "budžet"
+        verbose_name_plural = "budžeti"
+        ordering = ["-godina", "-mjesec"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["korisnik", "godina", "mjesec"], name="jedan_budzet_po_mjesecu"
+            )
+        ]
+
+    def __str__(self): 
+        return f"{self.mjesec}/{self.godina}: {self.iznos} €"
