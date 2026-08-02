@@ -24,6 +24,12 @@ from django.utils import timezone
 from .models import Budzet
 from .serializers import BudzetSerializer
 
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+
+from .filters import RacunFilter
+from .models import Racun
+from .serializers import RacunSerializer
+
 
 
 class RegistracijaPogled(generics.CreateAPIView):
@@ -220,3 +226,23 @@ class PregledPogled(APIView):
                 "zadnje_transakcije": zadnje,
             }
         )
+
+
+class RacunViewSet(viewsets.ModelViewSet):
+    """Digitalna arhiva racuna prijavljenog korisnika."""
+
+    serializer_class = RacunSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = RacunFilter
+    search_fields = ["trgovina", "prepoznati_tekst"]
+    ordering_fields = ["datum_spremanja", "datum_izdavanja"]
+
+    def get_queryset(self):
+        return Racun.objects.filter(
+            transakcija__korisnik=self.request.user
+        ).select_related("transakcija", "transakcija__kategorija")
+
+    def perform_destroy(self, racun):
+        racun.transakcija.delete()

@@ -10,6 +10,15 @@ from .models import Korisnik
 from django.db.models import Q
 from .models import Kategorija, Transakcija, Budzet
 
+from decimal import Decimal
+
+from django.db import transaction as db_transakcija
+from django.utils import timezone
+
+from .models import Budzet, Kategorija, Racun, Transakcija
+
+
+
 class KorisnikSerializer(serializers.ModelSerializer):
     """Prikaz korisnika prema van — nikad ne sadrzi lozinku."""
 
@@ -163,3 +172,82 @@ class BudzetSerializer(serializers.ModelSerializer):
                 {"mjesec": "Budžet za taj mjesec već postoji."}
             )
         return podaci
+
+
+class RacunSerializer(serializers.ModelSerializer):
+    """Skenirani racun. Pri stvaranju ujedno radi i pripadnu transakciju."""
+
+    transakcija = TransakcijaSerializer(read_only=True)
+    iznos = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01"), write_only=True
+    )
+    kategorija = serializers.PrimaryKeyRelatedField(
+        queryset=Kategorija.objects.all(), write_only=True, required=False, allow_null=True
+    )
+    datum = serializers.DateField(write_only=True, required=False)
+    opis = serializers.CharField(
+        max_length=200, write_only=True, required=False, allow_blank=True
+    )
+
+    class Meta:
+        model = Racun
+        fields = [
+            "id",
+            "trgovina",
+            "datum_izdavanja",
+            "slika",
+            "prepoznati_tekst",
+            "datum_spremanja",
+            "transakcija",
+            "iznos",
+            "kategorija",
+            "datum",
+            "opis",
+        ]
+        read_only_fields = ["id", "datum_spremanja", "transakcija"]
+
+    def validate_kategorija(self, kategorija):
+        if kategorija is None:
+            return kategorija
+        korisnik = self.context["request"].user
+        if kategorija.vlasnik_id not in (None, korisnik.id):
+            raise serializers.ValidationError("Kategorija ne postoji.")
+        if kategorija.tip != Kategorija.TipKategorije.TROSAK:
+            raise serializers.ValidationError("Račun se može vezati samo uz kategoriju troška.")
+        return kategorija
+
+    def izdvoji_podatke_transakcije(self, provjereni_podaci):
+        return {
+            "iznos": provjereni_podaci.pop("iznos", None),
+            "kategorija": provjereni_podaci.pop("kategorija", None),
+            "datum": provjereni_podaci.pop("datum", None),
+            "opis": provjereni_podaci.pop("opis", None),
+        }
+
+    @db_transakcija.atomic
+    def create(self, provjereni_podaci):
+        podaci = self.izdvoji_podatke_transakcije(provjereni_podaci)
+        datum = (
+            podaci["datum"]
+            or provjereni_podaci.get("datum_izdavanja")
+            or timezone.localdate()
+        )
+        transakcija = Transakcija.objects.create(
+            korisnik=self.context["request"].user,
+            tip=Transakcija.TipTransakcije.TROSAK,
+            iznos=podaci["iznos"],
+            kategorija=podaci["kategorija"],
+            datum=datum,
+            opis=podaci["opis"] or provjereni_podaci.get("trgovina", ""),
+        )
+        return Racun.objects.create(transakcija=transakcija, **provjereni_podaci)
+
+    @db_transakcija.atomic
+    def update(self, racun, provjereni_podaci):
+        podaci = self.izdvoji_podatke_transakcije(provjereni_podaci)
+        transakcija = racun.transakcija
+        for polje, vrijednost in podaci.items():
+            if vrijednost is not None:
+                setattr(transakcija, polje, vrijednost)
+        transakcija.save()
+        return super().update(racun, provjereni_podaci)

@@ -8,6 +8,7 @@ usmjerivac = DefaultRouter()
 usmjerivac.register("kategorije", views.KategorijaViewSet, basename="kategorija")
 usmjerivac.register("transakcije", views.TransakcijaViewSet, basename="transakcija")
 usmjerivac.register("budzeti", views.BudzetViewSet, basename="budzet")
+usmjerivac.register("racuni", views.RacunViewSet, basename="racun")
 
 urlpatterns = [
     path("registracija/", views.RegistracijaPogled.as_view(), name="registracija"),
