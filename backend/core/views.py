@@ -15,6 +15,17 @@ from .filters import TransakcijaFilter
 from .models import Kategorija, Transakcija
 from .serializers import KategorijaSerializer, TransakcijaSerializer
 
+
+from decimal import Decimal
+
+from django.db.models import Sum
+from django.utils import timezone
+
+from .models import Budzet
+from .serializers import BudzetSerializer
+
+
+
 class RegistracijaPogled(generics.CreateAPIView):
     """POST /api/registracija/ — stvara korisnika, vraca 201."""
 
@@ -107,3 +118,105 @@ class TransakcijaViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(korisnik=self.request.user)
+
+
+class BudzetViewSet(viewsets.ModelViewSet):
+    """Mjesecni budzeti prijavljenog korisnika."""
+
+    serializer_class = BudzetSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["godina", "mjesec"]
+
+    def get_queryset(self):
+        return Budzet.objects.filter(korisnik=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(korisnik=self.request.user)
+
+
+def novac(vrijednost):
+    """Decimal -> string s dvije decimale, da frontend uvijek dobije isti oblik."""
+    return str((vrijednost or Decimal("0")).quantize(Decimal("0.01")))
+
+
+class PregledPogled(APIView):
+    """GET /api/pregled/?godina=&mjesec= — zbrojevi za pocetni ekran."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, zahtjev):
+        danas = timezone.localdate()
+        try:
+            godina = int(zahtjev.query_params.get("godina", danas.year))
+            mjesec = int(zahtjev.query_params.get("mjesec", danas.month))
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Godina i mjesec moraju biti brojevi."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not 1 <= mjesec <= 12:
+            return Response(
+                {"detail": "Mjesec mora biti između 1 i 12."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        transakcije = Transakcija.objects.filter(
+            korisnik=zahtjev.user, datum__year=godina, datum__month=mjesec
+        )
+
+        prihodi = transakcije.filter(tip=Transakcija.TipTransakcije.PRIHOD).aggregate(
+            zbroj=Sum("iznos")
+        )["zbroj"] or Decimal("0")
+        troskovi = transakcije.filter(tip=Transakcija.TipTransakcije.TROSAK).aggregate(
+            zbroj=Sum("iznos")
+        )["zbroj"] or Decimal("0")
+
+        skupine = (
+            transakcije.filter(tip=Transakcija.TipTransakcije.TROSAK)
+            .values("kategorija", "kategorija__naziv", "kategorija__boja", "kategorija__ikona")
+            .annotate(zbroj=Sum("iznos"))
+            .order_by("-zbroj")
+        )
+        po_kategorijama = [
+            {
+                "kategorija": skupina["kategorija"],
+                "naziv": skupina["kategorija__naziv"] or "Bez kategorije",
+                "boja": skupina["kategorija__boja"] or "#6B7280",
+                "ikona": skupina["kategorija__ikona"] or "category",
+                "iznos": novac(skupina["zbroj"]),
+                "postotak": (
+                    round(float(skupina["zbroj"] / troskovi * 100), 1) if troskovi else 0.0
+                ),
+            }
+            for skupina in skupine
+        ]
+
+        budzet = Budzet.objects.filter(
+            korisnik=zahtjev.user, godina=godina, mjesec=mjesec
+        ).first()
+
+        zadnje = TransakcijaSerializer(
+            transakcije.select_related("kategorija")[:5],
+            many=True,
+            context={"request": zahtjev},
+        ).data
+
+        return Response(
+            {
+                "godina": godina,
+                "mjesec": mjesec,
+                "ukupno_prihodi": novac(prihodi),
+                "ukupno_troskovi": novac(troskovi),
+                "saldo": novac(prihodi - troskovi),
+                "budzet": novac(budzet.iznos) if budzet else None,
+                "preostalo_budzeta": novac(budzet.iznos - troskovi) if budzet else None,
+                "postotak_budzeta": (
+                    round(float(troskovi / budzet.iznos * 100), 1)
+                    if budzet and budzet.iznos
+                    else None
+                ),
+                "broj_transakcija": transakcije.count(),
+                "po_kategorijama": po_kategorijama,
+                "zadnje_transakcije": zadnje,
+            }
+        )

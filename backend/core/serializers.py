@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Korisnik
 
 from django.db.models import Q
-from .models import Kategorija, Transakcija
+from .models import Kategorija, Transakcija, Budzet
 
 class KorisnikSerializer(serializers.ModelSerializer):
     """Prikaz korisnika prema van — nikad ne sadrzi lozinku."""
@@ -136,5 +136,30 @@ class TransakcijaSerializer(serializers.ModelSerializer):
         if kategorija is not None and tip is not None and kategorija.tip != tip:
             raise serializers.ValidationError(
                 {"kategorija": "Kategorija ne odgovara tipu transakcije."}
+            )
+        return podaci
+
+
+class BudzetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Budzet
+        fields = ["id", "godina", "mjesec", "iznos"]
+        read_only_fields = ["id"]
+
+    def validate_mjesec(self, vrijednost):
+        if not 1 <= vrijednost <= 12:
+            raise serializers.ValidationError("Mjesec mora biti između 1 i 12.")
+        return vrijednost
+
+    def validate(self, podaci):
+        korisnik = self.context["request"].user
+        godina = podaci.get("godina", getattr(self.instance, "godina", None))
+        mjesec = podaci.get("mjesec", getattr(self.instance, "mjesec", None))
+        postojeci = Budzet.objects.filter(korisnik=korisnik, godina=godina, mjesec=mjesec)
+        if self.instance is not None:
+            postojeci = postojeci.exclude(pk=self.instance.pk)
+        if postojeci.exists():
+            raise serializers.ValidationError(
+                {"mjesec": "Budžet za taj mjesec već postoji."}
             )
         return podaci
