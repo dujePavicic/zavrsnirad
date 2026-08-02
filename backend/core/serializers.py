@@ -7,6 +7,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Korisnik
 
+from django.db.models import Q
+from .models import Kategorija, Transakcija
 
 class KorisnikSerializer(serializers.ModelSerializer):
     """Prikaz korisnika prema van — nikad ne sadrzi lozinku."""
@@ -74,3 +76,65 @@ class PrijavaSerializer(serializers.Serializer):
             "access": str(token_osvjezavanja.access_token),
             "refresh": str(token_osvjezavanja),
         }
+
+class KategorijaSerializer(serializers.ModelSerializer):
+    je_sustavska = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Kategorija
+        fields = ["id", "naziv", "tip", "boja", "ikona", "je_sustavska"]
+        read_only_fields = ["id"]
+
+    def get_je_sustavska(self, kategorija):
+        return kategorija.vlasnik_id is None
+
+    def validate_naziv(self, vrijednost):
+        vrijednost = vrijednost.strip()
+        korisnik = self.context["request"].user
+        postojece = Kategorija.objects.filter(naziv__iexact=vrijednost).filter(
+            Q(vlasnik__isnull=True) | Q(vlasnik=korisnik)
+        )
+        if self.instance is not None:
+            postojece = postojece.exclude(pk=self.instance.pk)
+        if postojece.exists():
+            raise serializers.ValidationError("Kategorija s ovim nazivom već postoji.")
+        return vrijednost
+
+
+class TransakcijaSerializer(serializers.ModelSerializer):
+    kategorija_naziv = serializers.CharField(source="kategorija.naziv", read_only=True)
+    kategorija_boja = serializers.CharField(source="kategorija.boja", read_only=True)
+    kategorija_ikona = serializers.CharField(source="kategorija.ikona", read_only=True)
+
+    class Meta:
+        model = Transakcija
+        fields = [
+            "id",
+            "tip",
+            "iznos",
+            "kategorija",
+            "kategorija_naziv",
+            "kategorija_boja",
+            "kategorija_ikona",
+            "datum",
+            "opis",
+            "datum_unosa",
+        ]
+        read_only_fields = ["id", "datum_unosa"]
+
+    def validate_kategorija(self, kategorija):
+        if kategorija is None:
+            return kategorija
+        korisnik = self.context["request"].user
+        if kategorija.vlasnik_id not in (None, korisnik.id):
+            raise serializers.ValidationError("Kategorija ne postoji.")
+        return kategorija
+
+    def validate(self, podaci):
+        tip = podaci.get("tip", getattr(self.instance, "tip", None))
+        kategorija = podaci.get("kategorija", getattr(self.instance, "kategorija", None))
+        if kategorija is not None and tip is not None and kategorija.tip != tip:
+            raise serializers.ValidationError(
+                {"kategorija": "Kategorija ne odgovara tipu transakcije."}
+            )
+        return podaci

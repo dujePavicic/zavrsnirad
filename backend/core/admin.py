@@ -2,8 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
-from .models import Korisnik
-
+from .models import Korisnik, Budzet, Kategorija, Racun, Transakcija
 
 class KorisnikCreationForm(UserCreationForm):
     class Meta:
@@ -49,3 +48,30 @@ class KorisnikAdmin(UserAdmin):
             "fields": ("email", "korisnicko_ime", "password1", "password2"),
         }),
     )
+
+
+@admin.register(Kategorija)
+class KategorijaAdmin(admin.ModelAdmin):
+    list_display = ("naziv", "tip", "vlasnik", "boja")
+    list_filter = ("tip",)
+    search_fields = ("naziv",)
+
+
+@admin.register(Transakcija)
+class TransakcijaAdmin(admin.ModelAdmin):
+    list_display = ("datum", "tip", "iznos", "kategorija", "korisnik", "opis")
+    list_filter = ("tip", "kategorija", "datum")
+    search_fields = ("opis",)
+    date_hierarchy = "datum"
+
+
+@admin.register(Racun)
+class RacunAdmin(admin.ModelAdmin):
+    list_display = ("trgovina", "datum_izdavanja", "transakcija", "datum_spremanja")
+    search_fields = ("trgovina", "prepoznati_tekst")
+
+
+@admin.register(Budzet)
+class BudzetAdmin(admin.ModelAdmin):
+    list_display = ("korisnik", "godina", "mjesec", "iznos")
+    list_filter = ("godina", "mjesec")
