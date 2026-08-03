@@ -32,7 +32,7 @@ class _PregledEkranState extends State<PregledEkran> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Potrošnja')),
+      appBar: AppBar(title: const Text('Pregled')),
       body: FutureBuilder<Pregled>(
         future: _buduciPregled,
         builder: (context, snap) {
