@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import 'pregled_ekran.dart';
 
 /// Glavni ekran nakon prijave: donji navigacijski bar s četiri taba.
 /// Sadržaj pojedinog taba puni se u sljedećim koracima.
@@ -21,7 +22,7 @@ class _GlavniEkranState extends State<GlavniEkran> {
     // prebacuješ između tabova, umjesto da se svaki put gradi ispočetka.
     final tabovi = [
       const _UskoroTab(naziv: 'Računi', ikona: Icons.receipt_long),
-      const _UskoroTab(naziv: 'Potrošnja', ikona: Icons.bar_chart),
+      const PregledEkran(),
       const _UskoroTab(naziv: 'Budžet', ikona: Icons.account_balance_wallet),
       const _ProfilTab(),
     ];
