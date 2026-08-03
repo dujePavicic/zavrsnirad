@@ -8,6 +8,12 @@ from rest_framework.test import APITestCase
 
 from .models import Kategorija, Racun, Transakcija
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from django.core.cache import cache
+
+
+
 LOZINKA = "TajnaLozinka123"
 
 
@@ -25,6 +31,7 @@ class AuthTest(APITestCase):
     """Registracija i prijava."""
 
     def setUp(self):
+        cache.clear()
         self.korisnik = napravi_korisnika("ana@example.com", "ana")
 
     def test_registracija_stvara_korisnika(self):
@@ -199,3 +206,36 @@ class RacunPregledTest(APITestCase):
         self.assertEqual(odgovor.data["ukupno_troskovi"], "250.00")
         self.assertEqual(odgovor.data["saldo"], "750.00")
         self.assertEqual(odgovor.data["po_kategorijama"][0]["postotak"], 100.0)
+
+    def test_odbija_datoteku_koja_nije_slika(self):
+        lazna = SimpleUploadedFile("racun.jpg", b"ovo nije slika", content_type="image/jpeg")
+        odgovor = self.client.post(
+            reverse("racun-list"),
+            {"trgovina": "Konzum", "iznos": "10.00", "datum": "2026-08-02", "slika": lazna},
+            format="multipart",
+        )
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("slika", odgovor.data)
+
+class OgranicenjeTest(APITestCase):
+    """Zastita od grubog pogadjanja lozinke."""
+
+    def setUp(self):
+        cache.clear()
+        napravi_korisnika("ana@example.com", "ana")
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_previse_pokusaja_prijave_vraca_429(self):
+        podaci = {"identifikator": "ana", "lozinka": "krivo"}
+        for _ in range(10):
+            self.client.post(reverse("prijava"), podaci)
+        odgovor = self.client.post(reverse("prijava"), podaci)
+        self.assertEqual(odgovor.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_ispravna_prijava_prolazi_unutar_ogranicenja(self):
+        odgovor = self.client.post(
+            reverse("prijava"), {"identifikator": "ana", "lozinka": LOZINKA}
+        )
+        self.assertEqual(odgovor.status_code, status.HTTP_200_OK)

@@ -37,12 +37,13 @@ class RegistracijaPogled(generics.CreateAPIView):
 
     serializer_class = RegistracijaSerializer
     permission_classes = [AllowAny]
-
+    throttle_scope = "registracija"
 
 class PrijavaPogled(APIView):
     """POST /api/prijava/ — identifikator + lozinka, vraca access i refresh."""
 
     permission_classes = [AllowAny]
+    throttle_scope = "prijava"
 
     def post(self, zahtjev):
         serijalizator = PrijavaSerializer(data=zahtjev.data, context={"request": zahtjev})

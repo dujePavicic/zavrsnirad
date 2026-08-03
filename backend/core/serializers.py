@@ -17,6 +17,8 @@ from django.utils import timezone
 
 from .models import Budzet, Kategorija, Racun, Transakcija
 
+from PIL import Image
+
 
 
 class KorisnikSerializer(serializers.ModelSerializer):
@@ -205,6 +207,25 @@ class RacunSerializer(serializers.ModelSerializer):
             "opis",
         ]
         read_only_fields = ["id", "datum_spremanja", "transakcija"]
+
+    NAJVECA_VELICINA = 5 * 1024 * 1024
+    DOPUSTENI_FORMATI = {"JPEG", "PNG", "WEBP"}
+
+    def validate_slika(self, slika):
+        if slika is None:
+            return slika
+        if slika.size > self.NAJVECA_VELICINA:
+            raise serializers.ValidationError("Slika ne smije biti veća od 5 MB.")
+        try:
+            provjera = Image.open(slika)
+            provjera.verify()
+        except Exception:
+            raise serializers.ValidationError("Datoteka nije valjana slika.")
+        finally:
+            slika.seek(0)
+        if provjera.format not in self.DOPUSTENI_FORMATI:
+            raise serializers.ValidationError("Dopušteni formati su JPEG, PNG i WEBP.")
+        return slika
 
     def validate_kategorija(self, kategorija):
         if kategorija is None:
