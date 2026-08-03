@@ -11,6 +11,11 @@ from django.core.validators import MinValueValidator
 
 from decimal import Decimal
 
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
+
+
 def provjeri_korisnicko_ime(vrijednost):
     if "@" in vrijednost:
         raise ValidationError("Korisničko ime ne smije sadržavati znak @.")
@@ -218,3 +223,10 @@ class Budzet(models.Model):
 
     def __str__(self): 
         return f"{self.mjesec}/{self.godina}: {self.iznos} €"
+
+
+    @receiver(post_delete, sender=Racun)
+    def obrisi_datoteku_racuna(sender, instance, **kwargs):
+        """Brise sliku s diska kad se racun obrise."""
+        if instance.slika:
+            instance.slika.delete(save=False)
