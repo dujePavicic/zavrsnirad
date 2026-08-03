@@ -17,4 +17,5 @@ class ApiConfig {
   static String get osvjeziToken => '$baseUrl/api/token/osvjezi/';
   static String get ja => '$baseUrl/api/ja/';
   static String get odjava => '$baseUrl/api/odjava/';
+  static String get pregled => '$baseUrl/api/pregled/';
 }
