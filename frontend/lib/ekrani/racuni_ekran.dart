@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import '../modeli/kategorija.dart';
 import '../modeli/racun.dart';
 import '../pomocno/format.dart';
+import '../pomocno/kategorije_redoslijed.dart';
 import '../servisi/kategorija_servis.dart';
 import '../servisi/racun_servis.dart';
+import 'kategorije_ekran.dart';
+import 'racun_detalj_ekran.dart';
 
 class RacuniEkran extends StatefulWidget {
   const RacuniEkran({super.key});
@@ -20,7 +23,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
   final _pretragaController = TextEditingController();
 
   late Future<List<Racun>> _buduci;
-  List<Kategorija> _kategorije = [];
+  List<Kategorija> _vidljive = []; // kategorije za pilule (po redoslijedu)
   int? _odabranaKategorija; // null = "Sve"
   Timer? _debounce;
 
@@ -40,8 +43,18 @@ class _RacuniEkranState extends State<RacuniEkran> {
 
   Future<void> _ucitajKategorije() async {
     try {
-      final k = await _kategorijaServis.dohvatiKategorije(tip: 'TROSAK');
-      if (mounted) setState(() => _kategorije = k);
+      final sve = await _kategorijaServis.dohvatiKategorije(tip: 'TROSAK');
+      final spremljeno = await ucitajVidljive();
+      final p = podijeli(sve, spremljeno);
+      if (!mounted) return;
+      setState(() {
+        _vidljive = p.vidljive;
+        // Ako je odabrana kategorija u međuvremenu skrivena, vrati na "Sve".
+        if (_odabranaKategorija != null &&
+            !_vidljive.any((k) => k.id == _odabranaKategorija)) {
+          _odabranaKategorija = null;
+        }
+      });
     } catch (_) {
       // Pilule nisu ključne; ako padne, samo ih nema.
     }
@@ -52,7 +65,6 @@ class _RacuniEkranState extends State<RacuniEkran> {
     return t.isEmpty ? null : t;
   }
 
-  /// Ponovno dohvati listu prema trenutnoj pretrazi i odabranoj kategoriji.
   void _osvjeziListu() {
     setState(() {
       _buduci = _servis.dohvatiRacune(
@@ -62,9 +74,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
     });
   }
 
-  /// Poziva se na svako slovo — s odgodom, da ne gnjavimo server.
   void _naPromjenuPretrage(String _) {
-    setState(() {}); // osvježi prikaz "x" gumba
+    setState(() {});
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), _osvjeziListu);
   }
@@ -76,6 +87,24 @@ class _RacuniEkranState extends State<RacuniEkran> {
     await novi;
   }
 
+  Future<void> _otvoriUredjivanje() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const KategorijeEkran()),
+    );
+    // Nakon povratka osvježi pilule (vidljivost/redoslijed su se mogli promijeniti).
+    await _ucitajKategorije();
+    _osvjeziListu();
+  }
+
+  Future<void> _otvoriDetalj(Racun r) async {
+    final obrisan = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => RacunDetaljEkran(racun: r)),
+    );
+    if (obrisan == true) _osvjeziListu(); // osvježi listu ako je obrisan
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,7 +112,6 @@ class _RacuniEkranState extends State<RacuniEkran> {
       floatingActionButton: FloatingActionButton(
         tooltip: 'Skeniraj račun',
         onPressed: () {
-          // TODO: navigacija na ekran skeniranja/OCR kad ga napravimo
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Skeniranje računa stiže uskoro.')),
           );
@@ -116,7 +144,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
               ),
             ),
           ),
-          if (_kategorije.isNotEmpty) _piluleFiltera(),
+          _pilule(),
           Expanded(
             child: FutureBuilder<List<Racun>>(
               future: _buduci,
@@ -145,7 +173,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
     );
   }
 
-  Widget _piluleFiltera() {
+  Widget _pilule() {
     return SizedBox(
       height: 44,
       child: ListView(
@@ -153,7 +181,16 @@ class _RacuniEkranState extends State<RacuniEkran> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: [
           _pilula('Sve', null),
-          ..._kategorije.map((k) => _pilula(k.naziv, k.id)),
+          ..._vidljive.map((k) => _pilula(k.naziv, k.id)),
+          // Gumb za upravljanje kategorijama na kraju reda:
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              avatar: const Icon(Icons.tune, size: 18),
+              label: const Text('Dodajte i uredite'),
+              onPressed: _otvoriUredjivanje,
+            ),
+          ),
         ],
       ),
     );
@@ -177,7 +214,6 @@ class _RacuniEkranState extends State<RacuniEkran> {
   }
 
   Widget _lista(BuildContext context, List<Racun> racuni) {
-    // Grupiraj račune po datumu (mapa čuva redoslijed umetanja).
     final grupe = <String, List<Racun>>{};
     for (final r in racuni) {
       grupe.putIfAbsent(r.datum, () => []).add(r);
@@ -195,7 +231,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
           ),
         ),
       ));
-      djeca.addAll(stavke.map((r) => _RacunRedak(racun: r)));
+      djeca.addAll(stavke.map((r) => _RacunRedak(racun: r, onTap: () => _otvoriDetalj(r))));
     });
 
     return ListView(
@@ -205,7 +241,6 @@ class _RacuniEkranState extends State<RacuniEkran> {
   }
 }
 
-/// "2026-08-03" -> "Danas" / "Jučer" / "3. kolovoz 2026"
 String _labelDatuma(String datum) {
   final d = DateTime.tryParse(datum);
   if (d == null) return datum;
@@ -218,54 +253,63 @@ String _labelDatuma(String datum) {
   return '${d.day}. ${imeMjeseca(d.month).toLowerCase()} ${d.year}';
 }
 
-/// Jedan redak (kartica) računa u arhivi.
 class _RacunRedak extends StatelessWidget {
   final Racun racun;
-  const _RacunRedak({required this.racun});
+  final VoidCallback? onTap;
+  const _RacunRedak({required this.racun, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final shema = Theme.of(context).colorScheme;
     final boja = bojaIzHexa(racun.kategorijaBoja);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: shema.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          _Slicica(
-              slika: racun.slika, boja: boja, ikona: racun.kategorijaIkona),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
               children: [
-                Text(
-                  racun.trgovina.isNotEmpty ? racun.trgovina : 'Račun',
-                  style:
-                      const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                _Slicica(
+                    slika: racun.slika,
+                    boja: boja,
+                    ikona: racun.kategorijaIkona),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        racun.trgovina.isNotEmpty ? racun.trgovina : 'Račun',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(racun.kategorijaNaziv,
+                          style: TextStyle(
+                              fontSize: 12, color: shema.onSurfaceVariant)),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 2),
-                Text(racun.kategorijaNaziv,
-                    style: TextStyle(fontSize: 12, color: shema.onSurfaceVariant)),
+                Text(formatNovac(racun.iznos),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15)),
               ],
             ),
           ),
-          Text(formatNovac(racun.iznos),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// Sličica računa: slika s backenda ili obojeni placeholder s ikonom kategorije.
 class _Slicica extends StatelessWidget {
   final String? slika;
   final Color boja;
@@ -311,7 +355,6 @@ class _Slicica extends StatelessWidget {
   }
 }
 
-/// Prazna arhiva.
 class _Prazno extends StatelessWidget {
   final Future<void> Function() naOsvjezi;
   const _Prazno({required this.naOsvjezi});
@@ -337,7 +380,6 @@ class _Prazno extends StatelessWidget {
   }
 }
 
-/// Prikaz greške s gumbom za ponovni pokušaj.
 class _Greska extends StatelessWidget {
   final String poruka;
   final Future<void> Function() naPokusaj;

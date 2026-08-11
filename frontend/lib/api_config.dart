@@ -20,4 +20,8 @@ class ApiConfig {
   static String get pregled => '$baseUrl/api/pregled/';
   static String get racuni => '$baseUrl/api/racuni/';
   static String get kategorije => '$baseUrl/api/kategorije/';
+  static String kategorijaId(int id) => '$baseUrl/api/kategorije/$id/';
+  static String get budzeti => '$baseUrl/api/budzeti/';
+  static String budzetId(int id) => '$baseUrl/api/budzeti/$id/';
+  static String racunId(int id) => '$baseUrl/api/racuni/$id/';
 }

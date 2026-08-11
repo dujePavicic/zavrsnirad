@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../modeli/korisnik.dart';
 import '../servisi/auth_servis.dart';
 import '../servisi/token_spremiste.dart';
+import '../pomocno/kategorije_redoslijed.dart';
 
 /// Mogući statusi prijave u aplikaciji.
 enum AuthStatus { pocetno, ucitavanje, prijavljen, odjavljen }
@@ -40,6 +41,7 @@ class AuthPruzatelj extends ChangeNotifier {
       try {
         _korisnik = await _servis.dohvatiJa();
       } catch (_) {}
+      if (_korisnik != null) await spremiTrenutnogKorisnika(_korisnik!.id);
       _status = AuthStatus.prijavljen;
       _greska = null;
       notifyListeners();
@@ -51,6 +53,7 @@ class AuthPruzatelj extends ChangeNotifier {
       _postaviGresku('Ne mogu se povezati s poslužiteljem.');
       return false;
     }
+    
   }
 
   /// Registracija, pa automatska prijava ako uspije.
@@ -74,6 +77,7 @@ class AuthPruzatelj extends ChangeNotifier {
       await _servis.prijavi(identifikator: email, lozinka: lozinka);
       _status = AuthStatus.prijavljen;
       _greska = null;
+      if (_korisnik != null) await spremiTrenutnogKorisnika(_korisnik!.id);
       notifyListeners();
       return true;
     } on AuthGreska catch (e) {

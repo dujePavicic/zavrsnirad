@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'pregled_ekran.dart';
 import 'racuni_ekran.dart';
+import 'budzet_ekran.dart';
 
 /// Glavni ekran nakon prijave: donji navigacijski bar s četiri taba.
 /// Sadržaj pojedinog taba puni se u sljedećim koracima.
@@ -22,9 +23,9 @@ class _GlavniEkranState extends State<GlavniEkran> {
     // IndexedStack čuva stanje svakog taba (npr. poziciju skrolanja) kad
     // prebacuješ između tabova, umjesto da se svaki put gradi ispočetka.
     final tabovi = [
-      const RacuniEkran(),
       const PregledEkran(),
-      const _UskoroTab(naziv: 'Budžet', ikona: Icons.account_balance_wallet),
+      const RacuniEkran(),
+      const BudzetEkran(),
       const _ProfilTab(),
     ];
 
@@ -35,14 +36,14 @@ class _GlavniEkranState extends State<GlavniEkran> {
         onDestinationSelected: (i) => setState(() => _odabraniIndeks = i),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Računi',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: 'Pregled',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Računi',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
