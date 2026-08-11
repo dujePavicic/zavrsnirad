@@ -18,4 +18,6 @@ class ApiConfig {
   static String get ja => '$baseUrl/api/ja/';
   static String get odjava => '$baseUrl/api/odjava/';
   static String get pregled => '$baseUrl/api/pregled/';
+  static String get racuni => '$baseUrl/api/racuni/';
+  static String get kategorije => '$baseUrl/api/kategorije/';
 }
