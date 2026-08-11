@@ -6,7 +6,11 @@ import '../servisi/racun_servis.dart';
 
 class RacunDetaljEkran extends StatelessWidget {
   final Racun racun;
-  const RacunDetaljEkran({super.key, required this.racun});
+
+  const RacunDetaljEkran({
+    super.key,
+    required this.racun,
+  });
 
   Future<void> _obrisi(BuildContext context) async {
     final potvrda = await showDialog<bool>(
@@ -14,151 +18,337 @@ class RacunDetaljEkran extends StatelessWidget {
       builder: (_) => AlertDialog(
         title: const Text('Obrisati račun?'),
         content: const Text(
-            'Račun i njegova transakcija bit će trajno obrisani.'),
+          'Račun i njegova transakcija bit će trajno obrisani.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Odustani')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Odustani'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Obriši'),
           ),
         ],
       ),
     );
+
     if (potvrda != true) return;
 
     try {
       await RacunServis().obrisi(racun.id);
-      if (context.mounted) Navigator.pop(context, true); // javi da je obrisan
+
+      if (context.mounted) {
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final shema = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
     final boja = bojaIzHexa(racun.kategorijaBoja);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(racun.trgovina.isNotEmpty ? racun.trgovina : 'Račun'),
-        actions: [
-          IconButton(
-            tooltip: 'Obriši',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _obrisi(context),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _slika(shema),
-          const SizedBox(height: 16),
-          Text(formatNovac(racun.iznos),
-              style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 12),
-          _redak(context,
-              ikona: ikonaIzNaziva(racun.kategorijaIkona),
-              boja: boja,
-              oznaka: 'Kategorija',
-              vrijednost: racun.kategorijaNaziv),
-          _redak(context,
-              ikona: Icons.event_outlined,
-              oznaka: 'Datum',
-              vrijednost: racun.datum),
-          if (racun.trgovina.isNotEmpty)
-            _redak(context,
-                ikona: Icons.store_outlined,
-                oznaka: 'Trgovina',
-                vrijednost: racun.trgovina),
-          const SizedBox(height: 20),
-          Text('Prepoznati tekst',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: shema.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              racun.prepoznatiTekst.isNotEmpty
-                  ? racun.prepoznatiTekst
-                  : 'Nema prepoznatog teksta.',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                color: racun.prepoznatiTekst.isNotEmpty
-                    ? null
-                    : shema.onSurfaceVariant,
+      backgroundColor: shema.surface,
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            _zaglavlje(context),
+            const SizedBox(height: 18),
+            _slika(context),
+            const SizedBox(height: 22),
+
+            Text(
+              racun.trgovina.isNotEmpty ? racun.trgovina : 'Račun',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              formatNovac(racun.iznos),
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.8,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            Text(
+              'Detalji',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            _InfoKartica(
+              ikona: ikonaIzNaziva(racun.kategorijaIkona),
+              bojaIkone: boja,
+              naslov: 'Kategorija',
+              vrijednost: racun.kategorijaNaziv,
+            ),
+            const SizedBox(height: 10),
+            _InfoKartica(
+              ikona: Icons.event_outlined,
+              naslov: 'Datum',
+              vrijednost: racun.datum,
+            ),
+            if (racun.trgovina.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _InfoKartica(
+                ikona: Icons.store_outlined,
+                naslov: 'Trgovina',
+                vrijednost: racun.trgovina,
+              ),
+            ],
+
+            const SizedBox(height: 26),
+
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Prepoznati tekst',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.document_scanner_outlined,
+                  size: 20,
+                  color: shema.onSurfaceVariant,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: shema.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: shema.outlineVariant.withValues(alpha: 0.45),
+                ),
+              ),
+              child: Text(
+                racun.prepoznatiTekst.isNotEmpty
+                    ? racun.prepoznatiTekst
+                    : 'Nema prepoznatog teksta.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                  height: 1.45,
+                  color: racun.prepoznatiTekst.isNotEmpty
+                      ? shema.onSurface
+                      : shema.onSurfaceVariant,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            OutlinedButton.icon(
+              onPressed: () => _obrisi(context),
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('Obriši račun'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: shema.error,
+                side: BorderSide(
+                  color: shema.error.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _slika(ColorScheme shema) {
+  Widget _zaglavlje(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Natrag',
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            'Detalji računa',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Obriši',
+          onPressed: () => _obrisi(context),
+          icon: Icon(
+            Icons.delete_outline_rounded,
+            color: shema.error,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _slika(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
     if (racun.slika != null && racun.slika!.isNotEmpty) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
           constraints: const BoxConstraints(maxHeight: 360),
-          color: shema.surfaceContainerHighest,
+          color: shema.surfaceContainerHigh,
           width: double.infinity,
           child: Image.network(
             racun.slika!,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => _placeholder(shema),
-            loadingBuilder: (c, w, p) => p == null
-                ? w
-                : const SizedBox(
-                    height: 200,
-                    child: Center(child: CircularProgressIndicator())),
+            errorBuilder: (_, __, ___) => _placeholder(context),
+            loadingBuilder: (c, w, p) {
+              return p == null
+                  ? w
+                  : const SizedBox(
+                      height: 220,
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+            },
           ),
         ),
       );
     }
-    return _placeholder(shema);
+
+    return _placeholder(context);
   }
 
-  Widget _placeholder(ColorScheme shema) {
+  Widget _placeholder(BuildContext context) {
+    final shema = Theme.of(context).colorScheme;
+
     return Container(
-      height: 180,
+      height: 190,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: shema.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        color: shema.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: shema.outlineVariant.withValues(alpha: 0.45),
+        ),
       ),
-      child: Icon(Icons.receipt_long_outlined,
-          size: 48, color: shema.onSurfaceVariant),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 48,
+            color: shema.primary,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Nema spremljene slike računa',
+            style: TextStyle(
+              color: shema.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
 
-  Widget _redak(BuildContext context,
-      {required IconData ikona,
-      Color? boja,
-      required String oznaka,
-      required String vrijednost}) {
-    final shema = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+class _InfoKartica extends StatelessWidget {
+  final IconData ikona;
+  final Color? bojaIkone;
+  final String naslov;
+  final String vrijednost;
+
+  const _InfoKartica({
+    required this.ikona,
+    this.bojaIkone,
+    required this.naslov,
+    required this.vrijednost,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: shema.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: shema.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
       child: Row(
         children: [
-          Icon(ikona, size: 20, color: boja ?? shema.onSurfaceVariant),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: (bojaIkone ?? shema.primary).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              ikona,
+              color: bojaIkone ?? shema.primary,
+              size: 21,
+            ),
+          ),
           const SizedBox(width: 12),
-          Text('$oznaka: ', style: TextStyle(color: shema.onSurfaceVariant)),
           Expanded(
-              child: Text(vrijednost.isNotEmpty ? vrijednost : '—')),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  naslov,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: shema.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  vrijednost.isNotEmpty ? vrijednost : '—',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

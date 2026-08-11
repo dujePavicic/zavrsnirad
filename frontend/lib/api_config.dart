@@ -24,4 +24,5 @@ class ApiConfig {
   static String get budzeti => '$baseUrl/api/budzeti/';
   static String budzetId(int id) => '$baseUrl/api/budzeti/$id/';
   static String racunId(int id) => '$baseUrl/api/racuni/$id/';
+  static String get transakcije => '$baseUrl/api/transakcije/';
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../modeli/kategorija.dart';
@@ -9,6 +10,7 @@ import '../servisi/kategorija_servis.dart';
 import '../servisi/racun_servis.dart';
 import 'kategorije_ekran.dart';
 import 'racun_detalj_ekran.dart';
+import 'transakcija_unos_ekran.dart';
 
 class RacuniEkran extends StatefulWidget {
   const RacuniEkran({super.key});
@@ -23,8 +25,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
   final _pretragaController = TextEditingController();
 
   late Future<List<Racun>> _buduci;
-  List<Kategorija> _vidljive = []; // kategorije za pilule (po redoslijedu)
-  int? _odabranaKategorija; // null = "Sve"
+  List<Kategorija> _vidljive = [];
+  int? _odabranaKategorija;
   Timer? _debounce;
 
   @override
@@ -46,18 +48,18 @@ class _RacuniEkranState extends State<RacuniEkran> {
       final sve = await _kategorijaServis.dohvatiKategorije(tip: 'TROSAK');
       final spremljeno = await ucitajVidljive();
       final p = podijeli(sve, spremljeno);
+
       if (!mounted) return;
+
       setState(() {
         _vidljive = p.vidljive;
-        // Ako je odabrana kategorija u međuvremenu skrivena, vrati na "Sve".
+
         if (_odabranaKategorija != null &&
             !_vidljive.any((k) => k.id == _odabranaKategorija)) {
           _odabranaKategorija = null;
         }
       });
-    } catch (_) {
-      // Pilule nisu ključne; ako padne, samo ih nema.
-    }
+    } catch (_) {}
   }
 
   String? get _upit {
@@ -77,12 +79,18 @@ class _RacuniEkranState extends State<RacuniEkran> {
   void _naPromjenuPretrage(String _) {
     setState(() {});
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), _osvjeziListu);
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      _osvjeziListu,
+    );
   }
 
   Future<void> _povuciZaOsvjezenje() async {
     final novi = _servis.dohvatiRacune(
-        search: _upit, kategorija: _odabranaKategorija);
+      search: _upit,
+      kategorija: _odabranaKategorija,
+    );
+
     setState(() => _buduci = novi);
     await novi;
   }
@@ -90,9 +98,11 @@ class _RacuniEkranState extends State<RacuniEkran> {
   Future<void> _otvoriUredjivanje() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const KategorijeEkran()),
+      MaterialPageRoute(
+        builder: (_) => const KategorijeEkran(),
+      ),
     );
-    // Nakon povratka osvježi pilule (vidljivost/redoslijed su se mogli promijeniti).
+
     await _ucitajKategorije();
     _osvjeziListu();
   }
@@ -100,94 +110,180 @@ class _RacuniEkranState extends State<RacuniEkran> {
   Future<void> _otvoriDetalj(Racun r) async {
     final obrisan = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => RacunDetaljEkran(racun: r)),
+      MaterialPageRoute(
+        builder: (_) => RacunDetaljEkran(racun: r),
+      ),
     );
-    if (obrisan == true) _osvjeziListu(); // osvježi listu ako je obrisan
+
+    if (obrisan == true) {
+      _osvjeziListu();
+    }
+  }
+
+  Future<void> _otvoriDodavanje() async {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dodaj',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Odaberi način unosa nove stavke.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: shema.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _DodajOpcija(
+                ikona: Icons.document_scanner_outlined,
+                naslov: 'Skeniraj račun',
+                opis: 'Fotografiraj račun i pripremi ga za OCR unos.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Skeniranje računa stiže uskoro.',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              _DodajOpcija(
+                ikona: Icons.edit_note_rounded,
+                naslov: 'Ručni unos',
+                opis: 'Ručno dodaj novu transakciju.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TransakcijaUnosEkran(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Računi')),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Skeniraj račun',
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Skeniranje računa stiže uskoro.')),
-          );
-        },
-        child: const Icon(Icons.document_scanner),
+      backgroundColor: shema.surface,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_racuni',
+        onPressed: _otvoriDodavanje,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Dodaj'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
-              controller: _pretragaController,
-              textInputAction: TextInputAction.search,
-              onChanged: _naPromjenuPretrage,
-              onSubmitted: (_) => _osvjeziListu(),
-              decoration: InputDecoration(
-                hintText: 'Pretraži po trgovini…',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _pretragaController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _pretragaController.clear();
-                          _osvjeziListu();
-                        },
-                      ),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: _Zaglavlje(),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _Pretraga(
+                controller: _pretragaController,
+                onChanged: _naPromjenuPretrage,
+                onSubmitted: (_) => _osvjeziListu(),
+                onClear: () {
+                  _pretragaController.clear();
+                  _osvjeziListu();
+                },
               ),
             ),
-          ),
-          _pilule(),
-          Expanded(
-            child: FutureBuilder<List<Racun>>(
-              future: _buduci,
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) {
-                  return _Greska(
+            const SizedBox(height: 14),
+            _pilule(),
+            const SizedBox(height: 6),
+            Expanded(
+              child: FutureBuilder<List<Racun>>(
+                future: _buduci,
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const _Ucitavanje();
+                  }
+
+                  if (snap.hasError) {
+                    return _Greska(
                       poruka: snap.error.toString(),
-                      naPokusaj: _povuciZaOsvjezenje);
-                }
-                final racuni = snap.data!;
-                if (racuni.isEmpty) {
-                  return _Prazno(naOsvjezi: _povuciZaOsvjezenje);
-                }
-                return RefreshIndicator(
-                  onRefresh: _povuciZaOsvjezenje,
-                  child: _lista(context, racuni),
-                );
-              },
+                      naPokusaj: _povuciZaOsvjezenje,
+                    );
+                  }
+
+                  final racuni = snap.data!;
+
+                  if (racuni.isEmpty) {
+                    return _Prazno(
+                      naOsvjezi: _povuciZaOsvjezenje,
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: _povuciZaOsvjezenje,
+                    child: _lista(
+                      context,
+                      racuni,
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _pilule() {
     return SizedBox(
-      height: 44,
+      height: 46,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
           _pilula('Sve', null),
-          ..._vidljive.map((k) => _pilula(k.naziv, k.id)),
-          // Gumb za upravljanje kategorijama na kraju reda:
+          ..._vidljive.map(
+            (k) => _pilula(k.naziv, k.id),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ActionChip(
-              avatar: const Icon(Icons.tune, size: 18),
-              label: const Text('Dodajte i uredite'),
+              avatar: const Icon(
+                Icons.tune_rounded,
+                size: 18,
+              ),
+              label: const Text('Uredi'),
               onPressed: _otvoriUredjivanje,
             ),
           ),
@@ -197,110 +293,321 @@ class _RacuniEkranState extends State<RacuniEkran> {
   }
 
   Widget _pilula(String tekst, int? id) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
     final odabrano = _odabranaKategorija == id;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
         label: Text(tekst),
         selected: odabrano,
+        showCheckmark: false,
+        side: BorderSide(
+          color: odabrano
+              ? shema.primary.withValues(alpha: 0.25)
+              : shema.outlineVariant.withValues(alpha: 0.55),
+        ),
+        selectedColor: shema.primary.withValues(alpha: 0.13),
+        backgroundColor: shema.surfaceContainerLow,
+        labelStyle: theme.textTheme.labelLarge?.copyWith(
+          color: odabrano
+              ? shema.primary
+              : shema.onSurfaceVariant,
+          fontWeight: odabrano
+              ? FontWeight.w700
+              : FontWeight.w600,
+        ),
         onSelected: (_) {
           setState(() {
             _odabranaKategorija = id;
-            _buduci = _servis.dohvatiRacune(search: _upit, kategorija: id);
+            _buduci = _servis.dohvatiRacune(
+              search: _upit,
+              kategorija: id,
+            );
           });
         },
       ),
     );
   }
 
-  Widget _lista(BuildContext context, List<Racun> racuni) {
+  Widget _lista(
+    BuildContext context,
+    List<Racun> racuni,
+  ) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
     final grupe = <String, List<Racun>>{};
+
     for (final r in racuni) {
-      grupe.putIfAbsent(r.datum, () => []).add(r);
+      grupe.putIfAbsent(
+        r.datum,
+        () => [],
+      ).add(r);
     }
 
     final djeca = <Widget>[];
+
     grupe.forEach((datum, stavke) {
-      djeca.add(Padding(
-        padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-        child: Text(
-          _labelDatuma(datum),
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+      djeca.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: shema.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _labelDatuma(datum),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: shema.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
-      ));
-      djeca.addAll(stavke.map((r) => _RacunRedak(racun: r, onTap: () => _otvoriDetalj(r))));
+      );
+
+      djeca.addAll(
+        stavke.map(
+          (r) => _RacunRedak(
+            racun: r,
+            onTap: () => _otvoriDetalj(r),
+          ),
+        ),
+      );
     });
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: djeca,
     );
   }
 }
 
-String _labelDatuma(String datum) {
-  final d = DateTime.tryParse(datum);
-  if (d == null) return datum;
-  final danas = DateTime.now();
-  final jucer = danas.subtract(const Duration(days: 1));
-  bool istiDan(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
-  if (istiDan(d, danas)) return 'Danas';
-  if (istiDan(d, jucer)) return 'Jučer';
-  return '${d.day}. ${imeMjeseca(d.month).toLowerCase()} ${d.year}';
+class _Zaglavlje extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Računi',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.7,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Pronađi, filtriraj i pregledaj svoje račune',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: shema.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Pretraga extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback onClear;
+
+  const _Pretraga({
+    required this.controller,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return TextField(
+      controller: controller,
+      textInputAction: TextInputAction.search,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      decoration: InputDecoration(
+        hintText: 'Pretraži po trgovini...',
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Očisti pretragu',
+                icon: const Icon(Icons.close_rounded),
+                onPressed: onClear,
+              ),
+        fillColor: shema.surfaceContainerHigh,
+        filled: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: shema.outlineVariant.withValues(alpha: 0.42),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: shema.primary,
+            width: 1.5,
+          ),
+        ),
+        hintStyle: theme.textTheme.bodyMedium?.copyWith(
+          color: shema.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
 }
 
 class _RacunRedak extends StatelessWidget {
   final Racun racun;
   final VoidCallback? onTap;
-  const _RacunRedak({required this.racun, this.onTap});
+
+  const _RacunRedak({
+    required this.racun,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final shema = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final boja = bojaIzHexa(racun.kategorijaBoja);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: shema.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
+          child: Ink(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? shema.surfaceContainerHigh.withValues(alpha: 0.85)
+                  : shema.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: shema.outlineVariant.withValues(
+                  alpha: isDark ? 0.24 : 0.5,
+                ),
+              ),
+            ),
             child: Row(
               children: [
                 _Slicica(
-                    slika: racun.slika,
-                    boja: boja,
-                    ikona: racun.kategorijaIkona),
-                const SizedBox(width: 12),
+                  slika: racun.slika,
+                  boja: boja,
+                  ikona: racun.kategorijaIkona,
+                ),
+                const SizedBox(width: 13),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        racun.trgovina.isNotEmpty ? racun.trgovina : 'Račun',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 15),
+                        racun.trgovina.isNotEmpty
+                            ? racun.trgovina
+                            : 'Račun',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Text(racun.kategorijaNaziv,
-                          style: TextStyle(
-                              fontSize: 12, color: shema.onSurfaceVariant)),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: boja,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              racun.kategorijaNaziv,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: shema.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (racun.slika != null &&
+                              racun.slika!.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.image_outlined,
+                              size: 15,
+                              color: shema.onSurfaceVariant,
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                Text(formatNovac(racun.iznos),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatNovac(racun.iznos),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: shema.onSurfaceVariant,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -314,68 +621,232 @@ class _Slicica extends StatelessWidget {
   final String? slika;
   final Color boja;
   final String ikona;
-  const _Slicica(
-      {required this.slika, required this.boja, required this.ikona});
+
+  const _Slicica({
+    required this.slika,
+    required this.boja,
+    required this.ikona,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (slika != null && slika!.isNotEmpty) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         child: Image.network(
           slika!,
-          width: 48,
-          height: 48,
+          width: 54,
+          height: 54,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _placeholder(),
-          loadingBuilder: (ctx, child, progress) =>
-              progress == null ? child : _placeholder(ucitava: true),
+          loadingBuilder: (ctx, child, progress) {
+            return progress == null
+                ? child
+                : _placeholder(
+                    ucitava: true,
+                  );
+          },
         ),
       );
     }
+
     return _placeholder();
   }
 
-  Widget _placeholder({bool ucitava = false}) {
+  Widget _placeholder({
+    bool ucitava = false,
+  }) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 54,
+      height: 54,
       decoration: BoxDecoration(
-        color: boja.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
+        color: boja.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: ucitava
           ? const Center(
               child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2)))
-          : Icon(ikonaIzNaziva(ikona), color: boja, size: 22),
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                ),
+              ),
+            )
+          : Icon(
+              ikonaIzNaziva(ikona),
+              color: boja,
+              size: 24,
+            ),
     );
   }
 }
 
-class _Prazno extends StatelessWidget {
-  final Future<void> Function() naOsvjezi;
-  const _Prazno({required this.naOsvjezi});
+class _DodajOpcija extends StatelessWidget {
+  final IconData ikona;
+  final String naslov;
+  final String opis;
+  final VoidCallback onTap;
+
+  const _DodajOpcija({
+    required this.ikona,
+    required this.naslov,
+    required this.opis,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final shema = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: shema.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: shema.outlineVariant.withValues(alpha: 0.45),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: shema.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  ikona,
+                  color: shema.primary,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      naslov,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      opis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: shema.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: shema.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _labelDatuma(String datum) {
+  final d = DateTime.tryParse(datum);
+
+  if (d == null) return datum;
+
+  final danas = DateTime.now();
+  final jucer = danas.subtract(
+    const Duration(days: 1),
+  );
+
+  bool istiDan(
+    DateTime a,
+    DateTime b,
+  ) {
+    return a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day;
+  }
+
+  if (istiDan(d, danas)) return 'Danas';
+  if (istiDan(d, jucer)) return 'Jučer';
+
+  return '${d.day}. ${imeMjeseca(d.month).toLowerCase()} ${d.year}';
+}
+
+class _Prazno extends StatelessWidget {
+  final Future<void> Function() naOsvjezi;
+
+  const _Prazno({
+    required this.naOsvjezi,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
     return RefreshIndicator(
       onRefresh: naOsvjezi,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(28, 70, 28, 120),
         children: [
-          const SizedBox(height: 120),
-          Icon(Icons.receipt_long_outlined,
-              size: 48, color: shema.onSurfaceVariant),
-          const SizedBox(height: 12),
-          Center(
-            child: Text('Nema računa za ovaj filter.',
-                style: TextStyle(color: shema.onSurfaceVariant)),
+          Container(
+            width: 64,
+            height: 64,
+            margin: const EdgeInsets.symmetric(horizontal: 110),
+            decoration: BoxDecoration(
+              color: shema.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.receipt_long_outlined,
+              size: 30,
+              color: shema.primary,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Nema računa',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            'Za odabrani filter trenutno nema spremljenih računa.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: shema.onSurfaceVariant,
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Ucitavanje extends StatelessWidget {
+  const _Ucitavanje();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 }
@@ -383,24 +854,59 @@ class _Prazno extends StatelessWidget {
 class _Greska extends StatelessWidget {
   final String poruka;
   final Future<void> Function() naPokusaj;
-  const _Greska({required this.poruka, required this.naPokusaj});
+
+  const _Greska({
+    required this.poruka,
+    required this.naPokusaj,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline, size: 40),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(poruka, textAlign: TextAlign.center),
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-              onPressed: naPokusaj, child: const Text('Pokušaj ponovno')),
-        ],
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: shema.errorContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline_rounded,
+                color: shema.onErrorContainer,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Nešto je pošlo po zlu',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              poruka,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: shema.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: naPokusaj,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Pokušaj ponovno'),
+            ),
+          ],
+        ),
       ),
     );
   }

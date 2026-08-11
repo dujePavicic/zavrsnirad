@@ -5,13 +5,16 @@ import 'providers/auth_provider.dart';
 import 'ekrani/prijava.dart';
 import 'themes/default_tema.dart';
 import '../ekrani/glavni_ekran.dart';
+import 'providers/pregled_provider.dart';
 
 void main() {
   runApp(
-    // Provider se postavlja na vrhu, pa mu svi ekrani mogu pristupiti.
-    // provjeriPrijavu() odmah gleda ima li spremljeni token.
-    ChangeNotifierProvider(
-      create: (_) => AuthPruzatelj()..provjeriPrijavu(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+            create: (_) => AuthPruzatelj()..provjeriPrijavu()),
+        ChangeNotifierProvider(create: (_) => PregledPruzatelj()),
+      ],
       child: const ZavrsniApp(),
     ),
   );
