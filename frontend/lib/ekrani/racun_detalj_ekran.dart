@@ -18,7 +18,8 @@ class RacunDetaljEkran extends StatelessWidget {
       builder: (_) => AlertDialog(
         title: const Text('Obrisati račun?'),
         content: const Text(
-          'Račun i njegova transakcija bit će trajno obrisani.',
+          'Bit će obrisani samo račun i njegova slika. '
+          'Financijska transakcija će ostati spremljena i ponovno će se prikazati među ručnim transakcijama.',
         ),
         actions: [
           TextButton(
@@ -49,7 +50,7 @@ class RacunDetaljEkran extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
           ),
         );
       }
@@ -167,18 +168,6 @@ class RacunDetaljEkran extends StatelessWidget {
             ),
 
             const SizedBox(height: 28),
-
-            OutlinedButton.icon(
-              onPressed: () => _obrisi(context),
-              icon: const Icon(Icons.delete_outline_rounded),
-              label: const Text('Obriši račun'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: shema.error,
-                side: BorderSide(
-                  color: shema.error.withValues(alpha: 0.4),
-                ),
-              ),
-            ),
           ],
         ),
       ),

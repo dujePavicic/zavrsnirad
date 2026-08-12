@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import 'pregled_ekran.dart';
 import 'racuni_ekran.dart';
 import 'budzet_ekran.dart';
+import 'transakcije_ekran.dart';
 import 'profil_uredi_ekran.dart';
 
 class GlavniEkran
@@ -23,6 +24,7 @@ class GlavniEkran
 class _GlavniEkranState
     extends State<GlavniEkran> {
   int _odabraniIndeks = 0;
+  int _racuniOsvjezenje = 0;
 
   @override
   Widget build(
@@ -36,7 +38,8 @@ class _GlavniEkranState
 
     final tabovi = [
       const PregledEkran(),
-      const RacuniEkran(),
+      const TransakcijeEkran(),
+      RacuniEkran(key: ValueKey(_racuniOsvjezenje)),
       const BudzetEkran(),
       const _ProfilTab(),
     ];
@@ -56,52 +59,37 @@ class _GlavniEkranState
         onDestinationSelected:
             (i) {
           setState(() {
-            _odabraniIndeks =
-                i;
+            _odabraniIndeks = i;
+
+            if (i == 2) {
+              _racuniOsvjezenje++;
+            }
           });
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(
-              Icons
-                  .bar_chart_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons
-                  .bar_chart_rounded,
-            ),
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart_rounded),
             label: 'Pregled',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons
-                  .receipt_long_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons
-                  .receipt_long_rounded,
-            ),
+            icon: Icon(Icons.swap_horiz_outlined),
+            selectedIcon: Icon(Icons.swap_horiz_rounded),
+            label: 'Transakcije',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long_rounded),
             label: 'Računi',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons
-                  .account_balance_wallet_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons
-                  .account_balance_wallet_rounded,
-            ),
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
             label: 'Budžet',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons
-                  .person_outline_rounded,
-            ),
-            selectedIcon: Icon(
-              Icons.person_rounded,
-            ),
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
             label: 'Profil',
           ),
         ],

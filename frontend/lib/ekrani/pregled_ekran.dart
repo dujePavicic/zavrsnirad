@@ -89,6 +89,8 @@ class _PregledEkranState extends State<PregledEkran> {
           _BudzetKartica(pregled: p),
         ],
 
+        const SizedBox(height: 28),
+
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -351,7 +353,7 @@ class _Donut extends StatelessWidget {
                   if (pregled.budzet != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      'od ${formatNovac(pregled.budzet!)}',
+                      'od ${formatNovac(pregled.raspoloziviBudzet ?? pregled.budzet!)}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: shema.onSurfaceVariant,
                       ),

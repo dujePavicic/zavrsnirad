@@ -53,8 +53,12 @@ class Pregled {
   final String dnevniProsjek;
 
   final String? budzet;
+  final String? raspoloziviBudzet;
   final String? preostaloBudzeta;
   final double? postotakBudzeta;
+
+  final String rasporedenoPoKategorijama;
+  final String preostaloZaRaspodjelu;
 
   final int brojTransakcija;
 
@@ -70,8 +74,11 @@ class Pregled {
     required this.danasPotroseno,
     required this.dnevniProsjek,
     required this.budzet,
+    required this.raspoloziviBudzet,
     required this.preostaloBudzeta,
     required this.postotakBudzeta,
+    required this.rasporedenoPoKategorijama,
+    required this.preostaloZaRaspodjelu,
     required this.brojTransakcija,
     required this.poKategorijama,
     required this.zadnjeTransakcije,
@@ -106,9 +113,14 @@ class Pregled {
       dnevniProsjek: json['dnevni_prosjek']?.toString() ?? '0.00',
 
       budzet: json['budzet']?.toString(),
+      raspoloziviBudzet: json['raspolozivi_budzet']?.toString(),
       preostaloBudzeta: json['preostalo_budzeta']?.toString(),
       postotakBudzeta:
           (json['postotak_budzeta'] as num?)?.toDouble(),
+      rasporedenoPoKategorijama:
+          json['rasporedeno_po_kategorijama']?.toString() ?? '0.00',
+      preostaloZaRaspodjelu:
+          json['preostalo_za_raspodjelu']?.toString() ?? '0.00',
 
       brojTransakcija: json['broj_transakcija'] as int? ?? 0,
 

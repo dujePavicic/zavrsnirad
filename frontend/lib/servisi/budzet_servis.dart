@@ -16,6 +16,29 @@ class BudzetServis {
     return a;
   }
 
+  String _izvuciGresku(http.Response odgovor) {
+    try {
+      final tijelo = jsonDecode(utf8.decode(odgovor.bodyBytes));
+
+      if (tijelo is Map<String, dynamic>) {
+        if (tijelo['detail'] != null) {
+          return tijelo['detail'].toString();
+        }
+
+        for (final vrijednost in tijelo.values) {
+          if (vrijednost is List && vrijednost.isNotEmpty) {
+            return vrijednost.first.toString();
+          }
+          if (vrijednost != null) {
+            return vrijednost.toString();
+          }
+        }
+      }
+    } catch (_) {}
+
+    return 'Došlo je do greške (${odgovor.statusCode}).';
+  }
+
   /// Budžet za zadani mjesec ili null ako nije postavljen.
   Future<Budzet?> dohvatiBudzet({
     required int godina,
@@ -56,7 +79,7 @@ class BudzetServis {
         body: jsonEncode({'iznos': iznos}),
       );
       if (odgovor.statusCode == 200) return;
-      throw Exception('Ne mogu spremiti budžet (${odgovor.statusCode}).');
+      throw Exception(_izvuciGresku(odgovor));
     } else {
       final odgovor = await http.post(
         Uri.parse(ApiConfig.budzeti),
@@ -67,7 +90,7 @@ class BudzetServis {
         body: jsonEncode({'godina': godina, 'mjesec': mjesec, 'iznos': iznos}),
       );
       if (odgovor.statusCode == 201) return;
-      throw Exception('Ne mogu spremiti budžet (${odgovor.statusCode}).');
+      throw Exception(_izvuciGresku(odgovor));
     }
   }
   Future<List<BudzetKategorije>> dohvatiBudzeteKategorija({
@@ -196,10 +219,7 @@ Future<void> postaviBudzetKategorije({
       return;
     }
 
-    throw Exception(
-      'Ne mogu spremiti budžet kategorije '
-      '(${odgovor.statusCode}).',
-    );
+    throw Exception(_izvuciGresku(odgovor));
   }
 
   final odgovor = await http.post(
@@ -220,9 +240,33 @@ Future<void> postaviBudzetKategorije({
     return;
   }
 
-  throw Exception(
-    'Ne mogu spremiti budžet kategorije '
-    '(${odgovor.statusCode}).',
+  throw Exception(_izvuciGresku(odgovor));
+}
+
+Future<void> obrisiBudzetKategorije({
+  required int godina,
+  required int mjesec,
+  required int kategorija,
+}) async {
+  final access = await _access();
+
+  final postojeci = await dohvatiBudzetKategorije(
+    godina: godina,
+    mjesec: mjesec,
+    kategorija: kategorija,
   );
+
+  if (postojeci == null) {
+    throw Exception('Budžet za ovu kategoriju nije pronađen.');
+  }
+
+  final odgovor = await http.delete(
+    Uri.parse(ApiConfig.budzetKategorijaId(postojeci.id)),
+    headers: {'Authorization': 'Bearer $access'},
+  );
+
+  if (odgovor.statusCode == 204) return;
+
+  throw Exception(_izvuciGresku(odgovor));
 }
 }

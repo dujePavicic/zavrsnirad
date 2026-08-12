@@ -11,6 +11,7 @@ import '../servisi/racun_servis.dart';
 import 'kategorije_ekran.dart';
 import 'racun_detalj_ekran.dart';
 import 'transakcija_unos_ekran.dart';
+import 'skeniranje_racuna_ekran.dart';
 
 class RacuniEkran extends StatefulWidget {
   const RacuniEkran({super.key});
@@ -79,10 +80,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
   void _naPromjenuPretrage(String _) {
     setState(() {});
     _debounce?.cancel();
-    _debounce = Timer(
-      const Duration(milliseconds: 350),
-      _osvjeziListu,
-    );
+    _debounce = Timer(const Duration(milliseconds: 350), _osvjeziListu);
   }
 
   Future<void> _povuciZaOsvjezenje() async {
@@ -98,9 +96,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
   Future<void> _otvoriUredjivanje() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const KategorijeEkran(),
-      ),
+      MaterialPageRoute(builder: (_) => const KategorijeEkran()),
     );
 
     await _ucitajKategorije();
@@ -110,9 +106,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
   Future<void> _otvoriDetalj(Racun r) async {
     final obrisan = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (_) => RacunDetaljEkran(racun: r),
-      ),
+      MaterialPageRoute(builder: (_) => RacunDetaljEkran(racun: r)),
     );
 
     if (obrisan == true) {
@@ -149,6 +143,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
                 ),
               ),
               const SizedBox(height: 18),
+
               _DodajOpcija(
                 ikona: Icons.document_scanner_outlined,
                 naslov: 'Skeniraj račun',
@@ -156,16 +151,17 @@ class _RacuniEkranState extends State<RacuniEkran> {
                 onTap: () {
                   Navigator.pop(sheetContext);
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Skeniranje računa stiže uskoro.',
-                      ),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SkeniranjeRacunaEkran(),
                     ),
                   );
                 },
               ),
+
               const SizedBox(height: 10),
+
               _DodajOpcija(
                 ikona: Icons.edit_note_rounded,
                 naslov: 'Ručni unos',
@@ -243,17 +239,12 @@ class _RacuniEkranState extends State<RacuniEkran> {
                   final racuni = snap.data!;
 
                   if (racuni.isEmpty) {
-                    return _Prazno(
-                      naOsvjezi: _povuciZaOsvjezenje,
-                    );
+                    return _Prazno(naOsvjezi: _povuciZaOsvjezenje);
                   }
 
                   return RefreshIndicator(
                     onRefresh: _povuciZaOsvjezenje,
-                    child: _lista(
-                      context,
-                      racuni,
-                    ),
+                    child: _lista(context, racuni),
                   );
                 },
               ),
@@ -273,16 +264,11 @@ class _RacuniEkranState extends State<RacuniEkran> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
           _pilula('Sve', null),
-          ..._vidljive.map(
-            (k) => _pilula(k.naziv, k.id),
-          ),
+          ..._vidljive.map((k) => _pilula(k.naziv, k.id)),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ActionChip(
-              avatar: const Icon(
-                Icons.tune_rounded,
-                size: 18,
-              ),
+              avatar: const Icon(Icons.tune_rounded, size: 18),
               label: const Text('Uredi'),
               onPressed: _otvoriUredjivanje,
             ),
@@ -311,40 +297,27 @@ class _RacuniEkranState extends State<RacuniEkran> {
         selectedColor: shema.primary.withValues(alpha: 0.13),
         backgroundColor: shema.surfaceContainerLow,
         labelStyle: theme.textTheme.labelLarge?.copyWith(
-          color: odabrano
-              ? shema.primary
-              : shema.onSurfaceVariant,
-          fontWeight: odabrano
-              ? FontWeight.w700
-              : FontWeight.w600,
+          color: odabrano ? shema.primary : shema.onSurfaceVariant,
+          fontWeight: odabrano ? FontWeight.w700 : FontWeight.w600,
         ),
         onSelected: (_) {
           setState(() {
             _odabranaKategorija = id;
-            _buduci = _servis.dohvatiRacune(
-              search: _upit,
-              kategorija: id,
-            );
+            _buduci = _servis.dohvatiRacune(search: _upit, kategorija: id);
           });
         },
       ),
     );
   }
 
-  Widget _lista(
-    BuildContext context,
-    List<Racun> racuni,
-  ) {
+  Widget _lista(BuildContext context, List<Racun> racuni) {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
 
     final grupe = <String, List<Racun>>{};
 
     for (final r in racuni) {
-      grupe.putIfAbsent(
-        r.datum,
-        () => [],
-      ).add(r);
+      grupe.putIfAbsent(r.datum, () => []).add(r);
     }
 
     final djeca = <Widget>[];
@@ -377,12 +350,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
       );
 
       djeca.addAll(
-        stavke.map(
-          (r) => _RacunRedak(
-            racun: r,
-            onTap: () => _otvoriDetalj(r),
-          ),
-        ),
+        stavke.map((r) => _RacunRedak(racun: r, onTap: () => _otvoriDetalj(r))),
       );
     });
 
@@ -481,10 +449,7 @@ class _Pretraga extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: shema.primary,
-            width: 1.5,
-          ),
+          borderSide: BorderSide(color: shema.primary, width: 1.5),
         ),
         hintStyle: theme.textTheme.bodyMedium?.copyWith(
           color: shema.onSurfaceVariant,
@@ -498,10 +463,7 @@ class _RacunRedak extends StatelessWidget {
   final Racun racun;
   final VoidCallback? onTap;
 
-  const _RacunRedak({
-    required this.racun,
-    this.onTap,
-  });
+  const _RacunRedak({required this.racun, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -543,9 +505,7 @@ class _RacunRedak extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        racun.trgovina.isNotEmpty
-                            ? racun.trgovina
-                            : 'Račun',
+                        racun.trgovina.isNotEmpty ? racun.trgovina : 'Račun',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -640,11 +600,7 @@ class _Slicica extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _placeholder(),
           loadingBuilder: (ctx, child, progress) {
-            return progress == null
-                ? child
-                : _placeholder(
-                    ucitava: true,
-                  );
+            return progress == null ? child : _placeholder(ucitava: true);
           },
         ),
       );
@@ -653,9 +609,7 @@ class _Slicica extends StatelessWidget {
     return _placeholder();
   }
 
-  Widget _placeholder({
-    bool ucitava = false,
-  }) {
+  Widget _placeholder({bool ucitava = false}) {
     return Container(
       width: 54,
       height: 54,
@@ -668,16 +622,10 @@ class _Slicica extends StatelessWidget {
               child: SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
-          : Icon(
-              ikonaIzNaziva(ikona),
-              color: boja,
-              size: 24,
-            ),
+          : Icon(ikonaIzNaziva(ikona), color: boja, size: 24),
     );
   }
 }
@@ -723,10 +671,7 @@ class _DodajOpcija extends StatelessWidget {
                   color: shema.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  ikona,
-                  color: shema.primary,
-                ),
+                child: Icon(ikona, color: shema.primary),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -749,10 +694,7 @@ class _DodajOpcija extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: shema.onSurfaceVariant,
-              ),
+              Icon(Icons.chevron_right_rounded, color: shema.onSurfaceVariant),
             ],
           ),
         ),
@@ -767,17 +709,10 @@ String _labelDatuma(String datum) {
   if (d == null) return datum;
 
   final danas = DateTime.now();
-  final jucer = danas.subtract(
-    const Duration(days: 1),
-  );
+  final jucer = danas.subtract(const Duration(days: 1));
 
-  bool istiDan(
-    DateTime a,
-    DateTime b,
-  ) {
-    return a.year == b.year &&
-        a.month == b.month &&
-        a.day == b.day;
+  bool istiDan(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   if (istiDan(d, danas)) return 'Danas';
@@ -789,9 +724,7 @@ String _labelDatuma(String datum) {
 class _Prazno extends StatelessWidget {
   final Future<void> Function() naOsvjezi;
 
-  const _Prazno({
-    required this.naOsvjezi,
-  });
+  const _Prazno({required this.naOsvjezi});
 
   @override
   Widget build(BuildContext context) {
@@ -845,9 +778,7 @@ class _Ucitavanje extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
+    return const Center(child: CircularProgressIndicator());
   }
 }
 
@@ -855,10 +786,7 @@ class _Greska extends StatelessWidget {
   final String poruka;
   final Future<void> Function() naPokusaj;
 
-  const _Greska({
-    required this.poruka,
-    required this.naPokusaj,
-  });
+  const _Greska({required this.poruka, required this.naPokusaj});
 
   @override
   Widget build(BuildContext context) {

@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../modeli/kategorija.dart';
+import '../modeli/transakcija.dart';
 import '../pomocno/format.dart';
 import '../providers/pregled_provider.dart';
 import '../servisi/kategorija_servis.dart';
 import '../servisi/transakcija_servis.dart';
 
 class TransakcijaUnosEkran extends StatefulWidget {
-  const TransakcijaUnosEkran({super.key});
+  final Transakcija? transakcija;
+
+  const TransakcijaUnosEkran({
+    super.key,
+    this.transakcija,
+  });
+
+  bool get jeUredivanje => transakcija != null;
 
   @override
   State<TransakcijaUnosEkran> createState() => _TransakcijaUnosEkranState();
@@ -17,11 +25,13 @@ class TransakcijaUnosEkran extends StatefulWidget {
 class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   final _servis = TransakcijaServis();
   final _kategorijaServis = KategorijaServis();
-  final _iznosController = TextEditingController();
-  final _opisController = TextEditingController();
 
-  String _tip = 'TROSAK';
-  DateTime _datum = DateTime.now();
+  late final TextEditingController _iznosController;
+  late final TextEditingController _opisController;
+
+  late String _tip;
+  late DateTime _datum;
+
   List<Kategorija> _kategorije = [];
   int? _kategorijaId;
   bool _spremam = false;
@@ -29,7 +39,22 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   @override
   void initState() {
     super.initState();
-    _ucitajKategorije();
+
+    final t = widget.transakcija;
+
+    _tip = t?.tip ?? 'TROSAK';
+    _datum = DateTime.tryParse(t?.datum ?? '') ?? DateTime.now();
+    _kategorijaId = t?.kategorija;
+
+    _iznosController = TextEditingController(
+      text: t?.iznos.replaceAll('.', ',') ?? '',
+    );
+
+    _opisController = TextEditingController(
+      text: t?.opis ?? '',
+    );
+
+    _ucitajKategorije(zadrziPostojecu: true);
   }
 
   @override
@@ -39,7 +64,9 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
     super.dispose();
   }
 
-  Future<void> _ucitajKategorije() async {
+  Future<void> _ucitajKategorije({
+    bool zadrziPostojecu = false,
+  }) async {
     try {
       final k = await _kategorijaServis.dohvatiKategorije(tip: _tip);
 
@@ -47,12 +74,21 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
 
       setState(() {
         _kategorije = k;
+
+        if (zadrziPostojecu &&
+            _kategorijaId != null &&
+            k.any((e) => e.id == _kategorijaId)) {
+          return;
+        }
+
         _kategorijaId = k.isNotEmpty ? k.first.id : null;
       });
     } catch (_) {}
   }
 
   void _promijeniTip(String noviTip) {
+    if (noviTip == _tip) return;
+
     setState(() {
       _tip = noviTip;
       _kategorije = [];
@@ -95,34 +131,48 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
     setState(() => _spremam = true);
 
     try {
-      await _servis.dodaj(
-        tip: _tip,
-        iznos: broj.toStringAsFixed(2),
-        kategorija: _kategorijaId!,
-        datum: _datumIso(_datum),
-        opis: _opisController.text.trim(),
-      );
+      late final Transakcija rezultat;
+
+      if (widget.transakcija == null) {
+        rezultat = await _servis.dodaj(
+          tip: _tip,
+          iznos: broj.toStringAsFixed(2),
+          kategorija: _kategorijaId!,
+          datum: _datumIso(_datum),
+          opis: _opisController.text.trim(),
+        );
+      } else {
+        rezultat = await _servis.azuriraj(
+          id: widget.transakcija!.id,
+          tip: _tip,
+          iznos: broj.toStringAsFixed(2),
+          kategorija: _kategorijaId!,
+          datum: _datumIso(_datum),
+          opis: _opisController.text.trim(),
+        );
+      }
 
       if (!mounted) return;
 
       await context.read<PregledPruzatelj>().osvjezi();
 
       if (mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, rezultat);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _spremam = false);
-        _poruka(e.toString());
-      }
+      if (!mounted) return;
+
+      setState(() => _spremam = false);
+
+      _poruka(
+        e.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
   void _poruka(String t) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(t),
-      ),
+      SnackBar(content: Text(t)),
     );
   }
 
@@ -130,6 +180,7 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
+    final jeUredivanje = widget.jeUredivanje;
 
     return Scaffold(
       backgroundColor: shema.surface,
@@ -174,10 +225,10 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.6,
               ),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: '0,00',
                 suffixText: '€',
-                prefixIcon: const Icon(Icons.payments_outlined),
+                prefixIcon: Icon(Icons.payments_outlined),
               ),
             ),
 
@@ -215,9 +266,7 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () {
-                      setState(() => _kategorijaId = k.id);
-                    },
+                    onTap: () => setState(() => _kategorijaId = k.id),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
                       padding: const EdgeInsets.symmetric(
@@ -346,13 +395,15 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.check_rounded),
                 label: Text(
-                  _spremam ? 'Spremanje...' : 'Spremi transakciju',
+                  _spremam
+                      ? 'Spremanje...'
+                      : jeUredivanje
+                          ? 'Spremi promjene'
+                          : 'Spremi transakciju',
                 ),
               ),
             ),
@@ -379,7 +430,7 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Nova transakcija',
+                widget.jeUredivanje ? 'Uredi transakciju' : 'Nova transakcija',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.4,
@@ -387,7 +438,9 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
               ),
               const SizedBox(height: 3),
               Text(
-                'Unesi osnovne podatke transakcije',
+                widget.jeUredivanje
+                    ? 'Promijeni podatke transakcije'
+                    : 'Unesi osnovne podatke transakcije',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: shema.onSurfaceVariant,
                 ),
@@ -490,13 +543,17 @@ class _TipOpcija extends StatelessWidget {
             Icon(
               ikona,
               size: 18,
-              color: odabrano ? boja : theme.colorScheme.onSurfaceVariant,
+              color: odabrano
+                  ? boja
+                  : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 7),
             Text(
               tekst,
               style: theme.textTheme.labelLarge?.copyWith(
-                color: odabrano ? boja : theme.colorScheme.onSurfaceVariant,
+                color: odabrano
+                    ? boja
+                    : theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
             ),
