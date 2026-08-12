@@ -15,7 +15,6 @@ from .filters import TransakcijaFilter
 from .models import Kategorija, Transakcija
 from .serializers import KategorijaSerializer, TransakcijaSerializer
 
-
 from decimal import Decimal
 
 from django.db.models import Sum
@@ -36,6 +35,10 @@ from .models import BudzetKategorije
 from .serializers import BudzetKategorijeSerializer, ProfilSerializer
 
 from .izracuni import prihodi_mjeseca, rasporedeno_po_kategorijama
+
+from rest_framework.decorators import action
+
+from .ocr import analiziraj_racun
 
 
 
@@ -321,3 +324,24 @@ class RacunViewSet(viewsets.ModelViewSet):
         return Racun.objects.filter(
             transakcija__korisnik=self.request.user
         ).select_related("transakcija", "transakcija__kategorija")
+
+    @action(detail=False, methods=["post"], url_path="analiziraj")
+    def analiziraj(self, zahtjev):
+        """Iz OCR teksta vraca prijedloge za ekran potvrde. Nista ne sprema."""
+        tekst = zahtjev.data.get("prepoznati_tekst", "") or ""
+        if not tekst.strip():
+            return Response(
+                {"prepoznati_tekst": ["Tekst je obavezan."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rezultat = analiziraj_racun(tekst)
+        naziv = rezultat.pop("predlozena_kategorija")
+        kategorija = None
+        if naziv:
+            kategorija = Kategorija.objects.filter(
+                naziv=naziv, vlasnik__isnull=True
+            ).first()
+        rezultat["kategorija"] = kategorija.id if kategorija else None
+        rezultat["kategorija_naziv"] = kategorija.naziv if kategorija else None
+        return Response(rezultat)
