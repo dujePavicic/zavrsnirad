@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../api_config.dart';
 import '../modeli/budzet.dart';
 import 'token_spremiste.dart';
+import '../modeli/budzet_kategorije.dart';
 
 /// Dohvaća i postavlja mjesečni budžet preko /api/budzeti/.
 class BudzetServis {
@@ -69,4 +70,159 @@ class BudzetServis {
       throw Exception('Ne mogu spremiti budžet (${odgovor.statusCode}).');
     }
   }
+  Future<List<BudzetKategorije>> dohvatiBudzeteKategorija({
+  required int godina,
+  required int mjesec,
+}) async {
+  final access = await _access();
+
+  final uri = Uri.parse(
+    ApiConfig.budzetiKategorija,
+  ).replace(
+    queryParameters: {
+      'godina': '$godina',
+      'mjesec': '$mjesec',
+    },
+  );
+
+  final odgovor = await http.get(
+    uri,
+    headers: {
+      'Authorization': 'Bearer $access',
+    },
+  );
+
+  if (odgovor.statusCode == 200) {
+    final tijelo =
+        jsonDecode(
+          utf8.decode(odgovor.bodyBytes),
+        ) as Map<String, dynamic>;
+
+    final rezultati =
+        (tijelo['results'] as List? ?? []);
+
+    return rezultati
+        .map(
+          (e) => BudzetKategorije.izJsona(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  throw Exception(
+    'Ne mogu dohvatiti budžete kategorija '
+    '(${odgovor.statusCode}).',
+  );
+}
+
+Future<BudzetKategorije?> dohvatiBudzetKategorije({
+  required int godina,
+  required int mjesec,
+  required int kategorija,
+}) async {
+  final access = await _access();
+
+  final uri = Uri.parse(
+    ApiConfig.budzetiKategorija,
+  ).replace(
+    queryParameters: {
+      'godina': '$godina',
+      'mjesec': '$mjesec',
+      'kategorija': '$kategorija',
+    },
+  );
+
+  final odgovor = await http.get(
+    uri,
+    headers: {
+      'Authorization': 'Bearer $access',
+    },
+  );
+
+  if (odgovor.statusCode == 200) {
+    final tijelo =
+        jsonDecode(
+          utf8.decode(odgovor.bodyBytes),
+        ) as Map<String, dynamic>;
+
+    final rezultati =
+        (tijelo['results'] as List? ?? []);
+
+    if (rezultati.isEmpty) {
+      return null;
+    }
+
+    return BudzetKategorije.izJsona(
+      rezultati.first as Map<String, dynamic>,
+    );
+  }
+
+  throw Exception(
+    'Ne mogu dohvatiti budžet kategorije '
+    '(${odgovor.statusCode}).',
+  );
+}
+
+Future<void> postaviBudzetKategorije({
+  required int godina,
+  required int mjesec,
+  required int kategorija,
+  required String iznos,
+}) async {
+  final access = await _access();
+
+  final postojeci = await dohvatiBudzetKategorije(
+    godina: godina,
+    mjesec: mjesec,
+    kategorija: kategorija,
+  );
+
+  if (postojeci != null) {
+    final odgovor = await http.patch(
+      Uri.parse(
+        ApiConfig.budzetKategorijaId(postojeci.id),
+      ),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $access',
+      },
+      body: jsonEncode({
+        'iznos': iznos,
+      }),
+    );
+
+    if (odgovor.statusCode == 200) {
+      return;
+    }
+
+    throw Exception(
+      'Ne mogu spremiti budžet kategorije '
+      '(${odgovor.statusCode}).',
+    );
+  }
+
+  final odgovor = await http.post(
+    Uri.parse(ApiConfig.budzetiKategorija),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $access',
+    },
+    body: jsonEncode({
+      'kategorija': kategorija,
+      'godina': godina,
+      'mjesec': mjesec,
+      'iznos': iznos,
+    }),
+  );
+
+  if (odgovor.statusCode == 201) {
+    return;
+  }
+
+  throw Exception(
+    'Ne mogu spremiti budžet kategorije '
+    '(${odgovor.statusCode}).',
+  );
+}
 }

@@ -77,12 +77,17 @@ class _PregledEkranState extends State<PregledEkran> {
 
         _GlavnaKartica(pregled: p),
 
+        const SizedBox(height: 16),
+
+        _BrziPregledKartice(
+          danasPotroseno: p.danasPotroseno,
+          dnevniProsjek: p.dnevniProsjek,
+        ),
+
         if (p.budzet != null) ...[
           const SizedBox(height: 16),
           _BudzetKartica(pregled: p),
         ],
-
-        const SizedBox(height: 28),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -417,6 +422,135 @@ class _Donut extends StatelessWidget {
     );
   }
 }
+
+class _BrziPregledKartice extends StatelessWidget {
+  final String danasPotroseno;
+  final String dnevniProsjek;
+
+  const _BrziPregledKartice({
+    required this.danasPotroseno,
+    required this.dnevniProsjek,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _MalaStatistikaKartica(
+            naslov: 'Danas',
+            vrijednost: formatNovac(danasPotroseno),
+            opis: 'potrošeno',
+            ikona: Icons.today_rounded,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MalaStatistikaKartica(
+            naslov: 'Dnevni prosjek',
+            vrijednost: formatNovac(dnevniProsjek),
+            opis: 'ovaj mjesec',
+            ikona: Icons.show_chart_rounded,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MalaStatistikaKartica extends StatelessWidget {
+  final String naslov;
+  final String vrijednost;
+  final String opis;
+  final IconData ikona;
+
+  const _MalaStatistikaKartica({
+    required this.naslov,
+    required this.vrijednost,
+    required this.opis,
+    required this.ikona,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? shema.surfaceContainerHigh.withValues(alpha: 0.82)
+            : shema.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: shema.outlineVariant.withValues(
+            alpha: isDark ? 0.22 : 0.5,
+          ),
+        ),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: shema.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              ikona,
+              size: 20,
+              color: shema.primary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            naslov,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: shema.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              vrijednost,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            opis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: shema.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
 
 class _BudzetKartica extends StatelessWidget {
   final Pregled pregled;
