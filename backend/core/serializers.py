@@ -21,6 +21,8 @@ from PIL import Image
 
 from .models import BudzetKategorije
 
+from .izracuni import prihodi_mjeseca, raspolozivi_budzet, rasporedeno_po_kategorijama
+
 
 
 NAJVECA_SLIKA = 5 * 1024 * 1024
@@ -155,9 +157,16 @@ class TransakcijaSerializer(serializers.ModelSerializer):
             "datum",
             "opis",
             "datum_unosa",
+            "racun_id",
         ]
         read_only_fields = ["id", "datum_unosa"]
 
+    racun_id = serializers.SerializerMethodField()
+
+    def get_racun_id(self, transakcija):
+        racun = getattr(transakcija, "racun", None)
+        return racun.id if racun else None
+    
     def validate_kategorija(self, kategorija):
         if kategorija is None:
             return kategorija
@@ -198,6 +207,20 @@ class BudzetSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"mjesec": "Budžet za taj mjesec već postoji."}
             )
+        iznos = podaci.get("iznos", getattr(self.instance, "iznos", None))
+        rasporedeno = rasporedeno_po_kategorijama(korisnik, godina, mjesec)
+        if rasporedeno and iznos is not None:
+            prihodi = prihodi_mjeseca(korisnik, godina, mjesec)
+            if iznos + prihodi < rasporedeno:
+                najmanje = rasporedeno - prihodi
+                raise serializers.ValidationError(
+                    {
+                        "iznos": (
+                            f"Po kategorijama je već raspoređeno {rasporedeno} €. "
+                            f"Budžet ne može biti manji od {najmanje} €."
+                        )
+                    }
+                )
         return podaci
 
 
@@ -206,7 +229,15 @@ class RacunSerializer(serializers.ModelSerializer):
 
     transakcija = TransakcijaSerializer(read_only=True)
     iznos = serializers.DecimalField(
-        max_digits=10, decimal_places=2, min_value=Decimal("0.01"), write_only=True
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01"),
+        write_only=True, required=False,
+    )
+    transakcija_id = serializers.PrimaryKeyRelatedField(
+        source="transakcija",
+        queryset=Transakcija.objects.all(),
+        write_only=True,
+        required=False,
+        help_text="Postojeća transakcija kojoj se naknadno dodaje račun.",
     )
     kategorija = serializers.PrimaryKeyRelatedField(
         queryset=Kategorija.objects.all(), write_only=True, required=False, allow_null=True
@@ -227,6 +258,7 @@ class RacunSerializer(serializers.ModelSerializer):
             "datum_spremanja",
             "transakcija",
             "iznos",
+            "transakcija_id",
             "kategorija",
             "datum",
             "opis",
@@ -262,6 +294,24 @@ class RacunSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Račun se može vezati samo uz kategoriju troška.")
         return kategorija
 
+    def validate_transakcija_id(self, transakcija):
+        korisnik = self.context["request"].user
+        if transakcija.korisnik_id != korisnik.id:
+            raise serializers.ValidationError("Transakcija ne postoji.")
+        if getattr(transakcija, "racun", None) is not None:
+            raise serializers.ValidationError("Transakcija već ima povezan račun.")
+        return transakcija
+
+    def validate(self, podaci):
+        postojeca = podaci.get("transakcija") or getattr(self.instance, "transakcija", None)
+        if postojeca is None and not podaci.get("iznos"):
+            raise serializers.ValidationError({"iznos": "Iznos je obavezan."})
+        if podaci.get("transakcija") and podaci.get("iznos"):
+            raise serializers.ValidationError(
+                {"iznos": "Kod postojeće transakcije iznos se ne šalje."}
+            )
+        return podaci
+
     def izdvoji_podatke_transakcije(self, provjereni_podaci):
         return {
             "iznos": provjereni_podaci.pop("iznos", None),
@@ -273,19 +323,21 @@ class RacunSerializer(serializers.ModelSerializer):
     @db_transakcija.atomic
     def create(self, provjereni_podaci):
         podaci = self.izdvoji_podatke_transakcije(provjereni_podaci)
-        datum = (
-            podaci["datum"]
-            or provjereni_podaci.get("datum_izdavanja")
-            or timezone.localdate()
-        )
-        transakcija = Transakcija.objects.create(
-            korisnik=self.context["request"].user,
-            tip=Transakcija.TipTransakcije.TROSAK,
-            iznos=podaci["iznos"],
-            kategorija=podaci["kategorija"],
-            datum=datum,
-            opis=podaci["opis"] or provjereni_podaci.get("trgovina", ""),
-        )
+        transakcija = provjereni_podaci.pop("transakcija", None)
+        if transakcija is None:
+            datum = (
+                podaci["datum"]
+                or provjereni_podaci.get("datum_izdavanja")
+                or timezone.localdate()
+            )
+            transakcija = Transakcija.objects.create(
+                korisnik=self.context["request"].user,
+                tip=Transakcija.TipTransakcije.TROSAK,
+                iznos=podaci["iznos"],
+                kategorija=podaci["kategorija"],
+                datum=datum,
+                opis=podaci["opis"] or provjereni_podaci.get("trgovina", ""),
+            )
         return Racun.objects.create(transakcija=transakcija, **provjereni_podaci)
 
     @db_transakcija.atomic
@@ -370,5 +422,20 @@ class BudzetKategorijeSerializer(serializers.ModelSerializer):
         if postojeci.exists():
             raise serializers.ValidationError(
                 {"kategorija": "Budžet za tu kategoriju u tom mjesecu već postoji."}
+            )
+        raspolozivo = raspolozivi_budzet(korisnik, godina, mjesec)
+        if raspolozivo is None:
+            raise serializers.ValidationError(
+                {"iznos": "Za taj mjesec prvo treba postaviti ukupni mjesečni budžet."}
+            )
+
+        iznos = podaci.get("iznos", getattr(self.instance, "iznos", None))
+        zauzeto = rasporedeno_po_kategorijama(
+            korisnik, godina, mjesec, osim=self.instance.pk if self.instance else None
+        )
+        slobodno = raspolozivo - zauzeto
+        if iznos is not None and iznos > slobodno:
+            raise serializers.ValidationError(
+                {"iznos": f"Za raspodjelu je preostalo {slobodno} € od {raspolozivo} €."}
             )
         return podaci

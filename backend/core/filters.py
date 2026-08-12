@@ -12,10 +12,14 @@ class TransakcijaFilter(django_filters.FilterSet):
     datum_od = django_filters.DateFilter(field_name="datum", lookup_expr="gte")
     datum_do = django_filters.DateFilter(field_name="datum", lookup_expr="lte")
 
+    ima_racun = django_filters.BooleanFilter(method="filtriraj_po_racunu")
+
+    def filtriraj_po_racunu(self, upit, naziv, vrijednost):
+        return upit.filter(racun__isnull=not vrijednost)
+    
     class Meta:
         model = Transakcija
-        fields = ["tip", "kategorija", "datum_od", "datum_do"]
-
+        fields = ["tip", "kategorija", "datum_od", "datum_do", "ima_racun"]
 
 class RacunFilter(django_filters.FilterSet):
     """Pretraga arhive po trgovini, rasponu datuma i kategoriji."""

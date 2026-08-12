@@ -35,6 +35,8 @@ import calendar
 from .models import BudzetKategorije
 from .serializers import BudzetKategorijeSerializer, ProfilSerializer
 
+from .izracuni import prihodi_mjeseca, rasporedeno_po_kategorijama
+
 
 
 class RegistracijaPogled(generics.CreateAPIView):
@@ -117,7 +119,6 @@ class KategorijaViewSet(viewsets.ModelViewSet):
         self.provjeri_vlasnistvo(kategorija)
         kategorija.delete()
 
-
 class TransakcijaViewSet(viewsets.ModelViewSet):
     """Prihodi i troskovi prijavljenog korisnika."""
 
@@ -129,7 +130,7 @@ class TransakcijaViewSet(viewsets.ModelViewSet):
     ordering_fields = ["datum", "iznos", "datum_unosa"]
 
     def get_queryset(self):
-        return Transakcija.objects.filter(korisnik=self.request.user).select_related("kategorija")
+        return Transakcija.objects.filter(korisnik=self.request.user).select_related("kategorija", "racun")
 
     def perform_create(self, serializer):
         serializer.save(korisnik=self.request.user)
@@ -191,8 +192,9 @@ class PregledPogled(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        korisnik = zahtjev.user
         transakcije = Transakcija.objects.filter(
-            korisnik=zahtjev.user, datum__year=godina, datum__month=mjesec
+            korisnik=korisnik, datum__year=godina, datum__month=mjesec
         )
 
         prihodi = transakcije.filter(tip=Transakcija.TipTransakcije.PRIHOD).aggregate(
@@ -202,10 +204,17 @@ class PregledPogled(APIView):
             zbroj=Sum("iznos")
         )["zbroj"] or Decimal("0")
 
+        budzet = Budzet.objects.filter(
+            korisnik=korisnik, godina=godina, mjesec=mjesec
+        ).first()
+        # Prihodi povecavaju ono sto je stvarno na raspolaganju, ali ne diraju postavljeni budzet.
+        raspolozivo = budzet.iznos + prihodi if budzet else None
+        rasporedeno = rasporedeno_po_kategorijama(korisnik, godina, mjesec)
+
         budzeti_kategorija = {
             stavka.kategorija_id: stavka.iznos
             for stavka in BudzetKategorije.objects.filter(
-                korisnik=zahtjev.user, godina=godina, mjesec=mjesec
+                korisnik=korisnik, godina=godina, mjesec=mjesec
             )
         }
 
@@ -269,12 +278,8 @@ class PregledPogled(APIView):
 
         dnevni_prosjek = troskovi / protekli_dani if protekli_dani else Decimal("0")
 
-        budzet = Budzet.objects.filter(
-            korisnik=zahtjev.user, godina=godina, mjesec=mjesec
-        ).first()
-
         zadnje = TransakcijaSerializer(
-            transakcije.select_related("kategorija")[:5],
+            transakcije.select_related("kategorija", "racun")[:5],
             many=True,
             context={"request": zahtjev},
         ).data
@@ -287,12 +292,11 @@ class PregledPogled(APIView):
                 "ukupno_troskovi": novac(troskovi),
                 "saldo": novac(prihodi - troskovi),
                 "budzet": novac(budzet.iznos) if budzet else None,
-                "preostalo_budzeta": novac(budzet.iznos - troskovi) if budzet else None,
-                "postotak_budzeta": (
-                    round(float(troskovi / budzet.iznos * 100), 1)
-                    if budzet and budzet.iznos
-                    else None
-                ),
+                "raspolozivi_budzet": novac(raspolozivo) if raspolozivo is not None else None,
+                "preostalo_budzeta": (novac(raspolozivo - troskovi) if raspolozivo is not None else None),
+                "postotak_budzeta": (round(float(troskovi / raspolozivo * 100), 1) if raspolozivo else None),
+                "rasporedeno_po_kategorijama": novac(rasporedeno),
+                "preostalo_za_raspodjelu": (novac(raspolozivo - rasporedeno) if raspolozivo is not None else None),
                 "broj_transakcija": transakcije.count(),
                 "danas_potroseno": novac(danas_potroseno),
                 "dnevni_prosjek": novac(dnevni_prosjek),
@@ -317,6 +321,3 @@ class RacunViewSet(viewsets.ModelViewSet):
         return Racun.objects.filter(
             transakcija__korisnik=self.request.user
         ).select_related("transakcija", "transakcija__kategorija")
-
-    def perform_destroy(self, racun):
-        racun.transakcija.delete()

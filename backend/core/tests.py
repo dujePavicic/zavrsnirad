@@ -12,6 +12,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from django.core.cache import cache
 
+from .models import Budzet, Kategorija, Racun, Transakcija
+
 
 
 LOZINKA = "TajnaLozinka123"
@@ -170,14 +172,14 @@ class RacunPregledTest(APITestCase):
         self.assertEqual(Transakcija.objects.filter(korisnik=self.ana).count(), 1)
         self.assertEqual(odgovor.data["transakcija"]["iznos"], "31.50")
 
-    def test_brisanje_racuna_brise_transakciju(self):
+    def test_brisanje_racuna_ostavlja_transakciju(self):
         odgovor = self.client.post(
             reverse("racun-list"),
             {"trgovina": "Plodine", "iznos": "12.30", "datum": "2026-08-02"},
         )
         self.client.delete(reverse("racun-detail", args=[odgovor.data["id"]]))
         self.assertEqual(Racun.objects.count(), 0)
-        self.assertEqual(Transakcija.objects.count(), 0)
+        self.assertEqual(Transakcija.objects.count(), 1)
 
     def test_pretraga_po_trgovini(self):
         self.client.post(
@@ -246,6 +248,10 @@ class BudzetKategorijeTest(APITestCase):
     def setUp(self):
         self.ana = napravi_korisnika("ana@example.com", "ana")
         self.namirnice = Kategorija.objects.get(naziv="Namirnice", vlasnik__isnull=True)
+        for mjesec in (8, 9):
+            Budzet.objects.create(
+                korisnik=self.ana, godina=2026, mjesec=mjesec, iznos=Decimal("2000.00")
+            )
         self.client.force_authenticate(user=self.ana)
 
     def postavi(self, kategorija, iznos, mjesec=8):
@@ -307,3 +313,129 @@ class ProfilTest(APITestCase):
         napravi_korisnika("ivan@example.com", "ivan")
         odgovor = self.client.patch(reverse("ja"), {"korisnicko_ime": "ivan"})
         self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+
+class RaspolozivBudzetTest(APITestCase):
+    """Prihodi povecavaju raspolozivo, a raspodjela ga ne smije prijeci."""
+
+    def setUp(self):
+        self.ana = napravi_korisnika("ana@example.com", "ana")
+        self.namirnice = Kategorija.objects.get(naziv="Namirnice", vlasnik__isnull=True)
+        self.prijevoz = Kategorija.objects.get(naziv="Prijevoz", vlasnik__isnull=True)
+        self.client.force_authenticate(user=self.ana)
+
+    def postavi_budzet(self, iznos):
+        return self.client.post(
+            reverse("budzet-list"), {"godina": 2026, "mjesec": 8, "iznos": iznos}
+        )
+
+    def postavi_kategoriju(self, kategorija, iznos):
+        return self.client.post(
+            reverse("budzet-kategorije-list"),
+            {"kategorija": kategorija.pk, "godina": 2026, "mjesec": 8, "iznos": iznos},
+        )
+
+    def dodaj_prihod(self, iznos):
+        Transakcija.objects.create(
+            korisnik=self.ana,
+            tip=Transakcija.TipTransakcije.PRIHOD,
+            iznos=Decimal(iznos),
+            datum=date(2026, 8, 3),
+        )
+
+    def test_bez_mjesecnog_budzeta_nema_kategorijskog(self):
+        odgovor = self.postavi_kategoriju(self.namirnice, "100.00")
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_zbroj_ne_smije_prijeci_raspolozivo(self):
+        self.postavi_budzet("1700.00")
+        self.assertEqual(self.postavi_kategoriju(self.namirnice, "500.00").status_code, 201)
+        odgovor = self.postavi_kategoriju(self.prijevoz, "1300.00")
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_prihod_povecava_prostor_za_raspodjelu(self):
+        self.postavi_budzet("1700.00")
+        self.postavi_kategoriju(self.namirnice, "1700.00")
+        self.assertEqual(self.postavi_kategoriju(self.prijevoz, "200.00").status_code, 400)
+        self.dodaj_prihod("300.00")
+        self.assertEqual(self.postavi_kategoriju(self.prijevoz, "200.00").status_code, 201)
+
+    def test_uredjivanje_izuzima_vlastiti_iznos(self):
+        self.postavi_budzet("1700.00")
+        odgovor = self.postavi_kategoriju(self.namirnice, "1700.00")
+        putanja = reverse("budzet-kategorije-detail", args=[odgovor.data["id"]])
+        self.assertEqual(self.client.patch(putanja, {"iznos": "1600.00"}).status_code, 200)
+
+    def test_ne_moze_smanjiti_budzet_ispod_rasporedenog(self):
+        odgovor = self.postavi_budzet("1700.00")
+        self.postavi_kategoriju(self.namirnice, "1300.00")
+        putanja = reverse("budzet-detail", args=[odgovor.data["id"]])
+        self.assertEqual(self.client.patch(putanja, {"iznos": "1000.00"}).status_code, 400)
+
+    def test_pregled_racuna_prihode_u_raspolozivom(self):
+        self.postavi_budzet("1700.00")
+        self.dodaj_prihod("300.00")
+        Transakcija.objects.create(
+            korisnik=self.ana,
+            tip=Transakcija.TipTransakcije.TROSAK,
+            iznos=Decimal("600.00"),
+            kategorija=self.namirnice,
+            datum=date(2026, 8, 5),
+        )
+        odgovor = self.client.get(reverse("pregled"), {"godina": 2026, "mjesec": 8})
+        self.assertEqual(odgovor.data["budzet"], "1700.00")
+        self.assertEqual(odgovor.data["raspolozivi_budzet"], "2000.00")
+        self.assertEqual(odgovor.data["preostalo_budzeta"], "1400.00")
+
+
+class NaknadniRacunTest(APITestCase):
+    """Dodavanje racuna postojecoj transakciji i filtriranje po racunu."""
+
+    def setUp(self):
+        self.ana = napravi_korisnika("ana@example.com", "ana")
+        self.namirnice = Kategorija.objects.get(naziv="Namirnice", vlasnik__isnull=True)
+        self.rucna = Transakcija.objects.create(
+            korisnik=self.ana,
+            tip=Transakcija.TipTransakcije.TROSAK,
+            iznos=Decimal("48.32"),
+            kategorija=self.namirnice,
+            datum=date(2026, 8, 12),
+        )
+        self.client.force_authenticate(user=self.ana)
+
+    def test_dodavanje_racuna_ne_duplicira_transakciju(self):
+        odgovor = self.client.post(
+            reverse("racun-list"),
+            {"transakcija_id": self.rucna.pk, "trgovina": "Konzum"},
+        )
+        self.assertEqual(odgovor.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Transakcija.objects.count(), 1)
+        self.assertEqual(odgovor.data["transakcija"]["iznos"], "48.32")
+
+    def test_transakcija_ne_moze_dobiti_dva_racuna(self):
+        self.client.post(reverse("racun-list"), {"transakcija_id": self.rucna.pk})
+        odgovor = self.client.post(reverse("racun-list"), {"transakcija_id": self.rucna.pk})
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_tuda_transakcija_se_ne_moze_povezati(self):
+        ivan = napravi_korisnika("ivan@example.com", "ivan")
+        tuda = Transakcija.objects.create(
+            korisnik=ivan,
+            tip=Transakcija.TipTransakcije.TROSAK,
+            iznos=Decimal("10.00"),
+            datum=date(2026, 8, 12),
+        )
+        odgovor = self.client.post(reverse("racun-list"), {"transakcija_id": tuda.pk})
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_filter_ima_racun(self):
+        self.client.post(
+            reverse("racun-list"),
+            {"trgovina": "Plodine", "iznos": "12.30", "datum": "2026-08-12"},
+        )
+        bez = self.client.get(reverse("transakcija-list"), {"ima_racun": "false"})
+        self.assertEqual(bez.data["count"], 1)
+        self.assertIsNone(bez.data["results"][0]["racun_id"])
+
+        sa = self.client.get(reverse("transakcija-list"), {"ima_racun": "true"})
+        self.assertEqual(sa.data["count"], 1)
+        self.assertIsNotNone(sa.data["results"][0]["racun_id"])
