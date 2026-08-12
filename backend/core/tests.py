@@ -239,3 +239,71 @@ class OgranicenjeTest(APITestCase):
             reverse("prijava"), {"identifikator": "ana", "lozinka": LOZINKA}
         )
         self.assertEqual(odgovor.status_code, status.HTTP_200_OK)
+
+class BudzetKategorijeTest(APITestCase):
+    """Budzet po kategoriji i njegov prikaz u pregledu."""
+
+    def setUp(self):
+        self.ana = napravi_korisnika("ana@example.com", "ana")
+        self.namirnice = Kategorija.objects.get(naziv="Namirnice", vlasnik__isnull=True)
+        self.client.force_authenticate(user=self.ana)
+
+    def postavi(self, kategorija, iznos, mjesec=8):
+        return self.client.post(
+            reverse("budzet-kategorije-list"),
+            {"kategorija": kategorija.pk, "godina": 2026, "mjesec": mjesec, "iznos": iznos},
+        )
+
+    def test_duplikat_za_isti_mjesec_vraca_400(self):
+        self.assertEqual(self.postavi(self.namirnice, "300.00").status_code, status.HTTP_201_CREATED)
+        self.assertEqual(self.postavi(self.namirnice, "400.00").status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_ne_moze_na_kategoriju_prihoda(self):
+        placa = Kategorija.objects.get(naziv="Plaća", vlasnik__isnull=True)
+        self.assertEqual(self.postavi(placa, "1000.00").status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_pregled_prikazuje_budzet_i_preostalo(self):
+        self.postavi(self.namirnice, "300.00")
+        Transakcija.objects.create(
+            korisnik=self.ana,
+            tip=Transakcija.TipTransakcije.TROSAK,
+            iznos=Decimal("37.99"),
+            kategorija=self.namirnice,
+            datum=date(2026, 8, 5),
+        )
+        odgovor = self.client.get(reverse("pregled"), {"godina": 2026, "mjesec": 8})
+        stavka = odgovor.data["po_kategorijama"][0]
+        self.assertEqual(stavka["budzet"], "300.00")
+        self.assertEqual(stavka["preostalo_budzeta"], "262.01")
+
+    def test_kategorija_s_budzetom_bez_troska_je_u_pregledu(self):
+        self.postavi(self.namirnice, "300.00", mjesec=9)
+        odgovor = self.client.get(reverse("pregled"), {"godina": 2026, "mjesec": 9})
+        stavka = odgovor.data["po_kategorijama"][0]
+        self.assertEqual(stavka["naziv"], "Namirnice")
+        self.assertEqual(stavka["iznos"], "0.00")
+        self.assertEqual(stavka["budzet"], "300.00")
+
+
+class ProfilTest(APITestCase):
+    """Uredjivanje vlastitog profila."""
+
+    def setUp(self):
+        self.ana = napravi_korisnika("ana@example.com", "ana")
+        self.client.force_authenticate(user=self.ana)
+
+    def test_moze_promijeniti_ime(self):
+        odgovor = self.client.patch(reverse("ja"), {"ime": "Anamarija"})
+        self.assertEqual(odgovor.status_code, status.HTTP_200_OK)
+        self.ana.refresh_from_db()
+        self.assertEqual(self.ana.ime, "Anamarija")
+
+    def test_email_se_ne_moze_promijeniti(self):
+        self.client.patch(reverse("ja"), {"email": "drugi@example.com"})
+        self.ana.refresh_from_db()
+        self.assertEqual(self.ana.email, "ana@example.com")
+
+    def test_zauzeto_korisnicko_ime_vraca_400(self):
+        napravi_korisnika("ivan@example.com", "ivan")
+        odgovor = self.client.patch(reverse("ja"), {"korisnicko_ime": "ivan"})
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)

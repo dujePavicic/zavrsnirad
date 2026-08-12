@@ -59,6 +59,10 @@ class Korisnik(AbstractBaseUser, PermissionsMixin):
     prezime = models.CharField("prezime", max_length=100, blank=True)
     datum_registracije = models.DateTimeField("datum registracije", default=timezone.now)
 
+    profilna_slika = models.ImageField(
+        "profilna slika", upload_to="profili/", null=True, blank=True
+    )
+
     is_active = models.BooleanField("aktivan", default=True)
     is_staff = models.BooleanField("član osoblja", default=False)
 
@@ -224,9 +228,50 @@ class Budzet(models.Model):
     def __str__(self): 
         return f"{self.mjesec}/{self.godina}: {self.iznos} €"
 
+class BudzetKategorije(models.Model):
+    """Mjesecni budzet za pojedinu kategoriju troska."""
 
-    @receiver(post_delete, sender=Racun)
-    def obrisi_datoteku_racuna(sender, instance, **kwargs):
-        """Brise sliku s diska kad se racun obrise."""
-        if instance.slika:
-            instance.slika.delete(save=False)
+    korisnik = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="korisnik",
+        on_delete=models.CASCADE,
+        related_name="budzeti_kategorija",
+    )
+    kategorija = models.ForeignKey(
+        Kategorija,
+        verbose_name="kategorija",
+        on_delete=models.CASCADE,
+        related_name="budzeti",
+    )
+    godina = models.PositiveSmallIntegerField("godina")
+    mjesec = models.PositiveSmallIntegerField("mjesec")
+    iznos = models.DecimalField(
+        "iznos", max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+
+    class Meta:
+        verbose_name = "budžet kategorije"
+        verbose_name_plural = "budžeti kategorija"
+        ordering = ["-godina", "-mjesec", "kategorija__naziv"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["korisnik", "kategorija", "godina", "mjesec"],
+                name="jedan_budzet_po_kategoriji_i_mjesecu",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.kategorija}: {self.iznos} € ({self.mjesec}/{self.godina})"
+
+@receiver(post_delete, sender=Racun)
+def obrisi_datoteku_racuna(sender, instance, **kwargs):
+    """Brise sliku s diska kad se racun obrise."""
+    if instance.slika:
+        instance.slika.delete(save=False)
+
+
+@receiver(post_delete, sender=Korisnik)
+def obrisi_profilnu_sliku(sender, instance, **kwargs):
+    """Brise profilnu sliku s diska kad se korisnik obrise."""
+    if instance.profilna_slika:
+        instance.profilna_slika.delete(save=False)
