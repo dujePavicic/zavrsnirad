@@ -30,6 +30,11 @@ from .filters import RacunFilter
 from .models import Racun
 from .serializers import RacunSerializer
 
+import calendar
+
+from .models import BudzetKategorije
+from .serializers import BudzetKategorijeSerializer, ProfilSerializer
+
 
 
 class RegistracijaPogled(generics.CreateAPIView):
@@ -51,11 +56,14 @@ class PrijavaPogled(APIView):
         return Response(serijalizator.validated_data, status=status.HTTP_200_OK)
 
 
-class JaPogled(generics.RetrieveAPIView):
-    """GET /api/ja/ — podaci o trenutno prijavljenom korisniku."""
+class JaPogled(generics.RetrieveUpdateAPIView):
+    """GET/PATCH /api/ja/ — podaci i uredjivanje vlastitog profila."""
 
-    serializer_class = KorisnikSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_serializer_class(self):
+        return KorisnikSerializer if self.request.method == "GET" else ProfilSerializer
 
     def get_object(self):
         return self.request.user
@@ -141,6 +149,22 @@ class BudzetViewSet(viewsets.ModelViewSet):
         serializer.save(korisnik=self.request.user)
 
 
+class BudzetKategorijeViewSet(viewsets.ModelViewSet):
+    """Mjesecni budzeti po kategorijama prijavljenog korisnika."""
+
+    serializer_class = BudzetKategorijeSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["godina", "mjesec", "kategorija"]
+
+    def get_queryset(self):
+        return BudzetKategorije.objects.filter(
+            korisnik=self.request.user
+        ).select_related("kategorija")
+
+    def perform_create(self, serializer):
+        serializer.save(korisnik=self.request.user)
+
+
 def novac(vrijednost):
     """Decimal -> string s dvije decimale, da frontend uvijek dobije isti oblik."""
     return str((vrijednost or Decimal("0")).quantize(Decimal("0.01")))
@@ -178,25 +202,72 @@ class PregledPogled(APIView):
             zbroj=Sum("iznos")
         )["zbroj"] or Decimal("0")
 
+        budzeti_kategorija = {
+            stavka.kategorija_id: stavka.iznos
+            for stavka in BudzetKategorije.objects.filter(
+                korisnik=zahtjev.user, godina=godina, mjesec=mjesec
+            )
+        }
+
         skupine = (
             transakcije.filter(tip=Transakcija.TipTransakcije.TROSAK)
             .values("kategorija", "kategorija__naziv", "kategorija__boja", "kategorija__ikona")
             .annotate(zbroj=Sum("iznos"))
             .order_by("-zbroj")
         )
-        po_kategorijama = [
-            {
-                "kategorija": skupina["kategorija"],
-                "naziv": skupina["kategorija__naziv"] or "Bez kategorije",
-                "boja": skupina["kategorija__boja"] or "#6B7280",
-                "ikona": skupina["kategorija__ikona"] or "category",
-                "iznos": novac(skupina["zbroj"]),
-                "postotak": (
-                    round(float(skupina["zbroj"] / troskovi * 100), 1) if troskovi else 0.0
-                ),
-            }
-            for skupina in skupine
-        ]
+
+        po_kategorijama = []
+        for skupina in skupine:
+            potroseno = skupina["zbroj"]
+            budzet_kategorije = budzeti_kategorija.pop(skupina["kategorija"], None)
+            po_kategorijama.append(
+                {
+                    "kategorija": skupina["kategorija"],
+                    "naziv": skupina["kategorija__naziv"] or "Bez kategorije",
+                    "boja": skupina["kategorija__boja"] or "#6B7280",
+                    "ikona": skupina["kategorija__ikona"] or "category",
+                    "iznos": novac(potroseno),
+                    "postotak": (
+                        round(float(potroseno / troskovi * 100), 1) if troskovi else 0.0
+                    ),
+                    "budzet": novac(budzet_kategorije) if budzet_kategorije else None,
+                    "preostalo_budzeta": (
+                        novac(budzet_kategorije - potroseno) if budzet_kategorije else None
+                    ),
+                }
+            )
+
+        # Kategorije koje imaju budzet, a jos nista nije potroseno
+        for kategorija in Kategorija.objects.filter(id__in=budzeti_kategorija.keys()):
+            iznos_budzeta = budzeti_kategorija[kategorija.id]
+            po_kategorijama.append(
+                {
+                    "kategorija": kategorija.id,
+                    "naziv": kategorija.naziv,
+                    "boja": kategorija.boja,
+                    "ikona": kategorija.ikona or "category",
+                    "iznos": "0.00",
+                    "postotak": 0.0,
+                    "budzet": novac(iznos_budzeta),
+                    "preostalo_budzeta": novac(iznos_budzeta),
+                }
+            )
+
+        dana_u_mjesecu = calendar.monthrange(godina, mjesec)[1]
+        if (godina, mjesec) > (danas.year, danas.month):
+            protekli_dani = 0
+        elif (godina, mjesec) == (danas.year, danas.month):
+            protekli_dani = danas.day
+        else:
+            protekli_dani = dana_u_mjesecu
+
+        danas_potroseno = Decimal("0")
+        if (godina, mjesec) == (danas.year, danas.month):
+            danas_potroseno = transakcije.filter(
+                tip=Transakcija.TipTransakcije.TROSAK, datum=danas
+            ).aggregate(zbroj=Sum("iznos"))["zbroj"] or Decimal("0")
+
+        dnevni_prosjek = troskovi / protekli_dani if protekli_dani else Decimal("0")
 
         budzet = Budzet.objects.filter(
             korisnik=zahtjev.user, godina=godina, mjesec=mjesec
@@ -223,6 +294,8 @@ class PregledPogled(APIView):
                     else None
                 ),
                 "broj_transakcija": transakcije.count(),
+                "danas_potroseno": novac(danas_potroseno),
+                "dnevni_prosjek": novac(dnevni_prosjek),
                 "po_kategorijama": po_kategorijama,
                 "zadnje_transakcije": zadnje,
             }

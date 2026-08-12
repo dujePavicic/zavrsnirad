@@ -19,6 +19,31 @@ from .models import Budzet, Kategorija, Racun, Transakcija
 
 from PIL import Image
 
+from .models import BudzetKategorije
+
+
+
+NAJVECA_SLIKA = 5 * 1024 * 1024
+DOPUSTENI_FORMATI_SLIKE = {"JPEG", "PNG", "WEBP"}
+
+
+def provjeri_sliku(slika):
+    """Provjerava velicinu i stvarni sadrzaj datoteke, ne samo nastavak imena."""
+    if slika is None:
+        return slika
+    if slika.size > NAJVECA_SLIKA:
+        raise serializers.ValidationError("Slika ne smije biti veća od 5 MB.")
+    try:
+        provjera = Image.open(slika)
+        provjera.verify()
+    except Exception:
+        raise serializers.ValidationError("Datoteka nije valjana slika.")
+    finally:
+        slika.seek(0)
+    if provjera.format not in DOPUSTENI_FORMATI_SLIKE:
+        raise serializers.ValidationError("Dopušteni formati su JPEG, PNG i WEBP.")
+    return slika
+
 
 
 class KorisnikSerializer(serializers.ModelSerializer):
@@ -26,7 +51,7 @@ class KorisnikSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Korisnik
-        fields = ["id", "email", "korisnicko_ime", "ime", "prezime", "datum_registracije"]
+        fields = ["id", "email", "korisnicko_ime", "ime", "prezime", "datum_registracije", "profilna_slika"]
         read_only_fields = fields
 
 
@@ -272,3 +297,78 @@ class RacunSerializer(serializers.ModelSerializer):
                 setattr(transakcija, polje, vrijednost)
         transakcija.save()
         return super().update(racun, provjereni_podaci)
+
+class ProfilSerializer(serializers.ModelSerializer):
+    """Uredjivanje vlastitog profila. Email i lozinka se ovdje ne mijenjaju."""
+
+    class Meta:
+        model = Korisnik
+        fields = [
+            "id", "email", "korisnicko_ime", "ime", "prezime",
+            "datum_registracije", "profilna_slika",
+        ]
+        read_only_fields = ["id", "email", "datum_registracije"]
+
+    def validate_korisnicko_ime(self, vrijednost):
+        if not vrijednost:
+            return vrijednost
+        vrijednost = vrijednost.strip()
+        zauzeto = Korisnik.objects.filter(korisnicko_ime__iexact=vrijednost).exclude(
+            pk=self.instance.pk
+        )
+        if zauzeto.exists():
+            raise serializers.ValidationError("Korisničko ime je već zauzeto.")
+        return vrijednost
+
+    def validate_profilna_slika(self, slika):
+        return provjeri_sliku(slika)
+
+    def update(self, korisnik, provjereni_podaci):
+        stara = korisnik.profilna_slika
+        nova = provjereni_podaci.get("profilna_slika", stara)
+        if stara and nova != stara:
+            stara.delete(save=False)
+        return super().update(korisnik, provjereni_podaci)
+
+
+class BudzetKategorijeSerializer(serializers.ModelSerializer):
+    kategorija_naziv = serializers.CharField(source="kategorija.naziv", read_only=True)
+    kategorija_boja = serializers.CharField(source="kategorija.boja", read_only=True)
+    kategorija_ikona = serializers.CharField(source="kategorija.ikona", read_only=True)
+
+    class Meta:
+        model = BudzetKategorije
+        fields = [
+            "id", "kategorija", "kategorija_naziv", "kategorija_boja",
+            "kategorija_ikona", "godina", "mjesec", "iznos",
+        ]
+        read_only_fields = ["id"]
+
+    def validate_mjesec(self, vrijednost):
+        if not 1 <= vrijednost <= 12:
+            raise serializers.ValidationError("Mjesec mora biti između 1 i 12.")
+        return vrijednost
+
+    def validate_kategorija(self, kategorija):
+        korisnik = self.context["request"].user
+        if kategorija.vlasnik_id not in (None, korisnik.id):
+            raise serializers.ValidationError("Kategorija ne postoji.")
+        if kategorija.tip != Kategorija.TipKategorije.TROSAK:
+            raise serializers.ValidationError("Budžet se postavlja samo za kategoriju troška.")
+        return kategorija
+
+    def validate(self, podaci):
+        korisnik = self.context["request"].user
+        kategorija = podaci.get("kategorija", getattr(self.instance, "kategorija", None))
+        godina = podaci.get("godina", getattr(self.instance, "godina", None))
+        mjesec = podaci.get("mjesec", getattr(self.instance, "mjesec", None))
+        postojeci = BudzetKategorije.objects.filter(
+            korisnik=korisnik, kategorija=kategorija, godina=godina, mjesec=mjesec
+        )
+        if self.instance is not None:
+            postojeci = postojeci.exclude(pk=self.instance.pk)
+        if postojeci.exists():
+            raise serializers.ValidationError(
+                {"kategorija": "Budžet za tu kategoriju u tom mjesecu već postoji."}
+            )
+        return podaci
