@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 
 import '../api_config.dart';
@@ -8,6 +10,7 @@ import 'token_spremiste.dart';
 /// Iznimka koja nosi čitljivu poruku o grešci prema korisniku.
 class AuthGreska implements Exception {
   final String poruka;
+
   AuthGreska(this.poruka);
 
   @override
@@ -17,7 +20,7 @@ class AuthGreska implements Exception {
 class AuthServis {
   final TokenSpremiste _tokenSpremiste = TokenSpremiste();
 
-  /// Registracija novog korisnika. Vraća kreiranog [Korisnik].
+  /// Registracija novog korisnika.
   Future<Korisnik> registriraj({
     required String email,
     required String korisnickoIme,
@@ -27,7 +30,9 @@ class AuthServis {
   }) async {
     final odgovor = await http.post(
       Uri.parse(ApiConfig.registracija),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: jsonEncode({
         'email': email,
         'korisnicko_ime': korisnickoIme,
@@ -38,21 +43,28 @@ class AuthServis {
     );
 
     if (odgovor.statusCode == 201) {
-      final tijelo = jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
       return Korisnik.izJsona(tijelo);
-    } else {
-      throw AuthGreska(_izvuciGresku(odgovor));
     }
+
+    throw AuthGreska(
+      _izvuciGresku(odgovor),
+    );
   }
 
-  /// Prijava. Ako uspije, sprema access i refresh token u sigurno spremište.
+  /// Prijava.
   Future<void> prijavi({
     required String identifikator,
     required String lozinka,
   }) async {
     final odgovor = await http.post(
       Uri.parse(ApiConfig.prijava),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: jsonEncode({
         'identifikator': identifikator,
         'lozinka': lozinka,
@@ -60,34 +72,54 @@ class AuthServis {
     );
 
     if (odgovor.statusCode == 200) {
-      final tijelo = jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
       await _tokenSpremiste.spremiTokene(
         access: tijelo['access'] as String,
         refresh: tijelo['refresh'] as String,
       );
-    } else {
-      throw AuthGreska(_izvuciGresku(odgovor));
+
+      return;
     }
+
+    throw AuthGreska(
+      _izvuciGresku(odgovor),
+    );
   }
 
-  /// Osvježava access token pomoću spremljenog refresh tokena.
+  /// Osvježava access token.
   Future<void> osvjeziToken() async {
-    final refresh = await _tokenSpremiste.dohvatiRefresh();
+    final refresh =
+        await _tokenSpremiste.dohvatiRefresh();
+
     if (refresh == null) {
-      throw AuthGreska('Nema spremljenog tokena. Prijavi se ponovno.');
+      throw AuthGreska(
+        'Nema spremljenog tokena. Prijavi se ponovno.',
+      );
     }
 
     final odgovor = await http.post(
       Uri.parse(ApiConfig.osvjeziToken),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refresh': refresh}),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'refresh': refresh,
+      }),
     );
 
     if (odgovor.statusCode == 200) {
-      final tijelo =
-          jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
-      final noviAccess = tijelo['access'] as String;
-      final noviRefresh = tijelo['refresh'] as String?;
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
+      final noviAccess =
+          tijelo['access'] as String;
+
+      final noviRefresh =
+          tijelo['refresh'] as String?;
 
       if (noviRefresh != null) {
         await _tokenSpremiste.spremiTokene(
@@ -95,68 +127,154 @@ class AuthServis {
           refresh: noviRefresh,
         );
       } else {
-        await _tokenSpremiste.spremiAccess(noviAccess);
+        await _tokenSpremiste.spremiAccess(
+          noviAccess,
+        );
       }
-    } else {
-      throw AuthGreska('Sesija je istekla. Prijavi se ponovno.');
+
+      return;
     }
+
+    throw AuthGreska(
+      'Sesija je istekla. Prijavi se ponovno.',
+    );
   }
 
-/// Dohvaća podatke trenutno prijavljenog korisnika (/api/ja/).
+  /// Dohvaća podatke trenutno prijavljenog korisnika.
   Future<Korisnik> dohvatiJa() async {
-    final access = await _tokenSpremiste.dohvatiAccess();
+    final access =
+        await _tokenSpremiste.dohvatiAccess();
+
     if (access == null) {
-      throw AuthGreska('Nisi prijavljen.');
+      throw AuthGreska(
+        'Nisi prijavljen.',
+      );
     }
 
     final odgovor = await http.get(
       Uri.parse(ApiConfig.ja),
-      headers: {'Authorization': 'Bearer $access'},
+      headers: {
+        'Authorization': 'Bearer $access',
+      },
     );
 
     if (odgovor.statusCode == 200) {
-      final tijelo =
-          jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
       return Korisnik.izJsona(tijelo);
-    } else {
-      throw AuthGreska('Ne mogu dohvatiti podatke korisnika.');
     }
+
+    throw AuthGreska(
+      'Ne mogu dohvatiti podatke korisnika.',
+    );
   }
 
+  /// Ažurira profil korisnika.
+  /// Slika se šalje kao bytes pa radi na Webu, Androidu i desktopu.
+  Future<Korisnik> azurirajProfil({
+    required String ime,
+    required String prezime,
+    required String korisnickoIme,
+    Uint8List? slikaBytes,
+    String? nazivSlike,
+  }) async {
+    final access =
+        await _tokenSpremiste.dohvatiAccess();
 
+    if (access == null) {
+      throw AuthGreska(
+        'Nisi prijavljen.',
+      );
+    }
 
+    final zahtjev = http.MultipartRequest(
+      'PATCH',
+      Uri.parse(ApiConfig.ja),
+    );
 
+    zahtjev.headers['Authorization'] =
+        'Bearer $access';
 
-  /// Odjava — briše spremljene tokene.
-  /// Odjava — poništava refresh na serveru (crna lista), pa briše lokalne tokene.
+    zahtjev.fields['ime'] = ime;
+    zahtjev.fields['prezime'] = prezime;
+    zahtjev.fields['korisnicko_ime'] =
+        korisnickoIme;
+
+    if (slikaBytes != null) {
+      zahtjev.files.add(
+        http.MultipartFile.fromBytes(
+          'profilna_slika',
+          slikaBytes,
+          filename: nazivSlike ?? 'profilna_slika.jpg',
+        ),
+      );
+    }
+
+    final poslano = await zahtjev.send();
+
+    final odgovor =
+        await http.Response.fromStream(
+      poslano,
+    );
+
+    if (odgovor.statusCode == 200) {
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
+      return Korisnik.izJsona(tijelo);
+    }
+
+    throw AuthGreska(
+      _izvuciGresku(odgovor),
+    );
+  }
+
+  /// Odjava.
   Future<void> odjavi() async {
-    final refresh = await _tokenSpremiste.dohvatiRefresh();
+    final refresh =
+        await _tokenSpremiste.dohvatiRefresh();
+
     if (refresh != null) {
       try {
         await http.post(
           Uri.parse(ApiConfig.odjava),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'refresh': refresh}),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'refresh': refresh,
+          }),
         );
       } catch (_) {
-        // Ako poziv padne (nema mreže), svejedno nastavljamo s lokalnom odjavom.
+        // Lokalna odjava se svejedno nastavlja.
       }
     }
+
     await _tokenSpremiste.obrisiTokene();
   }
 
-  /// Pretvara odgovor s greškom u čitljivu poruku.
-  String _izvuciGresku(http.Response odgovor) {
+  String _izvuciGresku(
+    http.Response odgovor,
+  ) {
     try {
-      final tijelo = jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
 
       if (tijelo.containsKey('detail')) {
         return tijelo['detail'].toString();
       }
+
       final prvo = tijelo.values.first;
-      if (prvo is List && prvo.isNotEmpty) {
+
+      if (prvo is List &&
+          prvo.isNotEmpty) {
         return prvo.first.toString();
       }
+
       return prvo.toString();
     } catch (_) {
       return 'Došlo je do greške (${odgovor.statusCode}).';

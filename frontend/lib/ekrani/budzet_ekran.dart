@@ -5,6 +5,8 @@ import '../modeli/pregled.dart';
 import '../pomocno/format.dart';
 import '../providers/pregled_provider.dart';
 import '../servisi/budzet_servis.dart';
+import '../modeli/kategorija.dart';
+import '../servisi/kategorija_servis.dart';
 
 class BudzetEkran extends StatelessWidget {
   const BudzetEkran({super.key});
@@ -36,6 +38,148 @@ class BudzetEkran extends StatelessWidget {
     }
   }
 
+  Future<void> _dodajBudzetKategorije(
+    BuildContext context,
+    Pregled p,
+  ) async {
+    try {
+      final sveKategorije =
+          await KategorijaServis().dohvatiKategorije(
+        tip: 'TROSAK',
+      );
+
+      // Kategorije koje već imaju postavljen budžet.
+      final zauzeteKategorije = p.poKategorijama
+          .where((k) => k.budzet != null)
+          .map((k) => k.kategorija)
+          .toSet();
+
+      // U izboru ostavljamo samo kategorije koje još nemaju budžet.
+      final kategorije = sveKategorije
+          .where(
+            (k) => !zauzeteKategorije.contains(k.id),
+          )
+          .toList();
+
+      if (!context.mounted) return;
+
+      // Ako sve kategorije već imaju budžet, ne otvaramo prazan dijalog.
+      if (kategorije.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Sve kategorije već imaju postavljen budžet.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final rezultat =
+          await showDialog<_RezultatBudzetaKategorije>(
+        context: context,
+        builder: (_) => _DijalogBudzetaKategorije(
+          kategorije: kategorije,
+        ),
+      );
+
+      if (rezultat == null) return;
+
+      await BudzetServis().postaviBudzetKategorije(
+        godina: p.godina,
+        mjesec: p.mjesec,
+        kategorija: rezultat.kategorija.id,
+        iznos: rezultat.iznos,
+      );
+
+      if (context.mounted) {
+        await context.read<PregledPruzatelj>().osvjezi();
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Budžet kategorije je spremljen.',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  Future<void> _urediBudzetKategorije(
+    BuildContext context,
+    Pregled p,
+    StavkaKategorije stavka,
+  ) async {
+    try {
+      final kategorije =
+          await KategorijaServis().dohvatiKategorije(
+        tip: 'TROSAK',
+      );
+
+      if (!context.mounted) return;
+
+      Kategorija? kategorija;
+
+      for (final k in kategorije) {
+        if (k.id == stavka.kategorija) {
+          kategorija = k;
+          break;
+        }
+      }
+
+      if (kategorija == null) return;
+
+      final rezultat =
+          await showDialog<_RezultatBudzetaKategorije>(
+        context: context,
+        builder: (_) => _DijalogBudzetaKategorije(
+          kategorije: [kategorija!],
+          pocetnaKategorija: kategorija,
+          pocetniIznos: stavka.budzet,
+          zakljucajKategoriju: true,
+        ),
+      );
+
+      if (rezultat == null) return;
+
+      await BudzetServis().postaviBudzetKategorije(
+        godina: p.godina,
+        mjesec: p.mjesec,
+        kategorija: rezultat.kategorija.id,
+        iznos: rezultat.iznos,
+      );
+
+      if (context.mounted) {
+        await context.read<PregledPruzatelj>().osvjezi();
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Budžet kategorije je ažuriran.',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pruzatelj = context.watch<PregledPruzatelj>();
@@ -45,9 +189,7 @@ class BudzetEkran extends StatelessWidget {
       appBar: AppBar(
         title: const Text(
           'Budžet',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
         centerTitle: false,
         elevation: 0,
@@ -118,17 +260,43 @@ class BudzetEkran extends StatelessWidget {
 
         const SizedBox(height: 28),
 
-        Text(
-          'Raspodjela',
-          style: textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Budžet po kategorijama',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Postavi limite za pojedine kategorije.',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: shema.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton.filledTonal(
+              onPressed: () =>
+                  _dodajBudzetKategorije(context, p),
+              tooltip: 'Dodaj budžet kategorije',
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
 
-        _KarticaKategorije(
-          shema: shema,
+        _BudzetiKategorija(
+          pregled: p,
+          naUredi: (stavka) =>
+              _urediBudzetKategorije(context, p, stavka),
         ),
       ],
     );
@@ -168,18 +336,14 @@ class _KarticaNema extends StatelessWidget {
               color: shema.primary,
             ),
           ),
-
           const SizedBox(height: 22),
-
           Text(
             'Postavi mjesečni budžet',
             style: textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
-
           const SizedBox(height: 8),
-
           Text(
             'Postavi koliko želiš potrošiti ovaj mjesec i prati koliko ti je još preostalo.',
             style: textTheme.bodyMedium?.copyWith(
@@ -187,9 +351,7 @@ class _KarticaNema extends StatelessWidget {
               color: shema.onSurfaceVariant,
             ),
           ),
-
           const SizedBox(height: 24),
-
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -257,7 +419,6 @@ class _KarticaBudzet extends StatelessWidget {
                   ),
                 ),
               ),
-
               IconButton(
                 onPressed: naUredi,
                 tooltip: 'Uredi budžet',
@@ -347,7 +508,6 @@ class _KarticaBudzet extends StatelessWidget {
                   ikona: Icons.trending_down_rounded,
                 ),
               ),
-
               Container(
                 width: 1,
                 height: 42,
@@ -355,7 +515,6 @@ class _KarticaBudzet extends StatelessWidget {
                   alpha: 0.7,
                 ),
               ),
-
               Expanded(
                 child: _InformacijaBudzeta(
                   naslov: 'Budžet',
@@ -397,18 +556,14 @@ class _InformacijaBudzeta extends StatelessWidget {
           size: 20,
           color: shema.onSurfaceVariant,
         ),
-
         const SizedBox(height: 7),
-
         Text(
           naslov,
           style: textTheme.bodySmall?.copyWith(
             color: shema.onSurfaceVariant,
           ),
         ),
-
         const SizedBox(height: 3),
-
         Text(
           vrijednost,
           textAlign: TextAlign.center,
@@ -421,16 +576,69 @@ class _InformacijaBudzeta extends StatelessWidget {
   }
 }
 
-class _KarticaKategorije extends StatelessWidget {
-  final ColorScheme shema;
+class _BudzetiKategorija extends StatelessWidget {
+  final Pregled pregled;
+  final void Function(StavkaKategorije) naUredi;
 
-  const _KarticaKategorije({
-    required this.shema,
+  const _BudzetiKategorija({
+    required this.pregled,
+    required this.naUredi,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final kategorije = pregled.poKategorijama
+        .where((k) => k.budzet != null)
+        .toList();
+
+    if (kategorije.isEmpty) {
+      return const _NemaBudzetaKategorija();
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < kategorije.length; i++) ...[
+          _BudzetKategorijeKartica(
+            stavka: kategorije[i],
+            naUredi: () => naUredi(kategorije[i]),
+          ),
+          if (i != kategorije.length - 1)
+            const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
+class _BudzetKategorijeKartica extends StatelessWidget {
+  final StavkaKategorije stavka;
+  final VoidCallback naUredi;
+
+  const _BudzetKategorijeKartica({
+    required this.stavka,
+    required this.naUredi,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    final potroseno = uBroj(stavka.iznos);
+    final budzet = uBroj(stavka.budzet ?? '0');
+
+    final postotak =
+        budzet > 0 ? (potroseno / budzet) * 100 : 0.0;
+
+    final udio = budzet > 0
+        ? (potroseno / budzet).clamp(0.0, 1.0)
+        : 0.0;
+
+    final prekoracen =
+        potroseno > budzet && budzet > 0;
+
+    final bojaKategorije =
+        bojaIzHexa(stavka.boja);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -443,63 +651,194 @@ class _KarticaKategorije extends StatelessWidget {
           ),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: bojaKategorije.withValues(
+                    alpha: 0.12,
+                  ),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  ikonaIzNaziva(stavka.ikona),
+                  color: bojaKategorije,
+                  size: 22,
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      stavka.naziv,
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${formatNovac(stavka.iznos)} potrošeno',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(
+                        color: shema.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              IconButton(
+                onPressed: naUredi,
+                tooltip: 'Uredi',
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 19,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: LinearProgressIndicator(
+              value: udio,
+              minHeight: 7,
+              backgroundColor:
+                  shema.surfaceContainerHighest,
+              color: prekoracen
+                  ? shema.error
+                  : bojaKategorije,
+            ),
+          ),
+
+          const SizedBox(height: 9),
+
+          Row(
+            children: [
+              Text(
+                '${postotak.toStringAsFixed(0)}%',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(
+                  color: prekoracen
+                      ? shema.error
+                      : shema.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'od ${formatNovac(stavka.budzet!)}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(
+                  color: shema.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          Row(
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                prekoracen
+                    ? 'Prekoračeno'
+                    : 'Preostalo',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(
+                  color: prekoracen
+                      ? shema.error
+                      : shema.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                formatNovac(
+                  stavka.preostaloBudzeta ?? '0',
+                ),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(
+                  color: prekoracen
+                      ? shema.error
+                      : shema.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NemaBudzetaKategorija extends StatelessWidget {
+  const _NemaBudzetaKategorija();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 22,
+        vertical: 28,
+      ),
+      decoration: BoxDecoration(
+        color: shema.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: shema.outlineVariant.withValues(
+            alpha: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
-              color: shema.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
+              color: shema.primary.withValues(
+                alpha: 0.1,
+              ),
+              shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.pie_chart_outline_rounded,
               color: shema.primary,
             ),
           ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Budžet po kategorijama',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  'Raspodijeli budžet na pojedine kategorije.',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: shema.onSurfaceVariant,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 14),
+          Text(
+            'Nema postavljenih limita',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
           ),
-
-          const SizedBox(width: 8),
-
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 9,
-              vertical: 5,
-            ),
-            decoration: BoxDecoration(
-              color: shema.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(100),
-            ),
-            child: Text(
-              'Uskoro',
-              style: textTheme.labelSmall?.copyWith(
-                color: shema.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
+          const SizedBox(height: 5),
+          Text(
+            'Dodaj budžet kategoriji kako bi lakše pratio svoju potrošnju.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: shema.onSurfaceVariant,
             ),
           ),
         ],
@@ -530,8 +869,7 @@ class _DijalogBudzetaState
     super.initState();
 
     _controller = TextEditingController(
-      text:
-          widget.pocetni?.replaceAll('.', ',') ?? '',
+      text: widget.pocetni?.replaceAll('.', ',') ?? '',
     );
   }
 
@@ -548,9 +886,9 @@ class _DijalogBudzetaState
     final broj = double.tryParse(tekst);
 
     if (broj == null || broj < 0) {
-      setState(
-        () => _greska = 'Unesi ispravan iznos',
-      );
+      setState(() {
+        _greska = 'Unesi ispravan iznos';
+      });
       return;
     }
 
@@ -612,6 +950,167 @@ class _DijalogBudzetaState
   }
 }
 
+class _RezultatBudzetaKategorije {
+  final Kategorija kategorija;
+  final String iznos;
+
+  const _RezultatBudzetaKategorije({
+    required this.kategorija,
+    required this.iznos,
+  });
+}
+
+class _DijalogBudzetaKategorije
+    extends StatefulWidget {
+  final List<Kategorija> kategorije;
+  final Kategorija? pocetnaKategorija;
+  final String? pocetniIznos;
+  final bool zakljucajKategoriju;
+
+  const _DijalogBudzetaKategorije({
+    required this.kategorije,
+    this.pocetnaKategorija,
+    this.pocetniIznos,
+    this.zakljucajKategoriju = false,
+  });
+
+  @override
+  State<_DijalogBudzetaKategorije> createState() =>
+      _DijalogBudzetaKategorijeState();
+}
+
+class _DijalogBudzetaKategorijeState
+    extends State<_DijalogBudzetaKategorije> {
+  late final TextEditingController _controller;
+
+  Kategorija? _odabrana;
+  String? _greska;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _odabrana = widget.pocetnaKategorija;
+
+    _controller = TextEditingController(
+      text: widget.pocetniIznos
+              ?.replaceAll('.', ',') ??
+          '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _spremi() {
+    if (_odabrana == null) {
+      setState(() {
+        _greska = 'Odaberi kategoriju';
+      });
+      return;
+    }
+
+    final tekst =
+        _controller.text.trim().replaceAll(',', '.');
+
+    final broj = double.tryParse(tekst);
+
+    if (broj == null || broj <= 0) {
+      setState(() {
+        _greska = 'Unesi ispravan iznos';
+      });
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      _RezultatBudzetaKategorije(
+        kategorija: _odabrana!,
+        iznos: broj.toStringAsFixed(2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
+      title: Text(
+        widget.zakljucajKategoriju
+            ? 'Uredi budžet'
+            : 'Dodaj budžet',
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<Kategorija>(
+            initialValue: _odabrana,
+            decoration: InputDecoration(
+              labelText: 'Kategorija',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            items: widget.kategorije.map((k) {
+              return DropdownMenuItem(
+                value: k,
+                child: Text(k.naziv),
+              );
+            }).toList(),
+            onChanged: widget.zakljucajKategoriju
+                ? null
+                : (vrijednost) {
+                    setState(() {
+                      _odabrana = vrijednost;
+                      _greska = null;
+                    });
+                  },
+          ),
+
+          const SizedBox(height: 16),
+
+          TextField(
+            controller: _controller,
+            autofocus: widget.zakljucajKategoriju,
+            keyboardType:
+                const TextInputType.numberWithOptions(
+              decimal: true,
+            ),
+            decoration: InputDecoration(
+              labelText: 'Iznos',
+              hintText: '0,00',
+              suffixText: '€',
+              errorText: _greska,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            onSubmitted: (_) => _spremi(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Odustani'),
+        ),
+        FilledButton(
+          onPressed: _spremi,
+          child: const Text('Spremi'),
+        ),
+      ],
+    );
+  }
+}
+
 class _Greska extends StatelessWidget {
   final String poruka;
   final Future<void> Function() naPokusaj;
@@ -636,16 +1135,12 @@ class _Greska extends StatelessWidget {
               size: 44,
               color: shema.error,
             ),
-
             const SizedBox(height: 14),
-
             Text(
               poruka,
               textAlign: TextAlign.center,
             ),
-
             const SizedBox(height: 18),
-
             FilledButton(
               onPressed: naPokusaj,
               child: const Text(
