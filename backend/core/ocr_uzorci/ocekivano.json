@@ -1,0 +1,50 @@
+{
+  "plodine": {
+    "trgovina": "Plodine",
+    "iznos": "88.97",
+    "datum": "2026-08-09",
+    "oib": "92510681007",
+    "kategorija": "Namirnice",
+    "zamka": "85.33 iz porezne tablice"
+  },
+  "ina": {
+    "trgovina": "INA",
+    "iznos": "26.50",
+    "datum": "2026-08-04",
+    "oib": "27759560625",
+    "kategorija": "Prijevoz",
+    "zamka": "27.90 je iznos prije popusta"
+  },
+  "lidl": {
+    "trgovina": "Lidl",
+    "iznos": "49.20",
+    "datum": "2026-07-10",
+    "oib": "66089976432",
+    "kategorija": "Namirnice",
+    "zamka": "48.10 iz retka Ukupno u poreznoj tablici"
+  },
+  "konzum": {
+    "trgovina": "Konzum",
+    "iznos": "10.88",
+    "datum": "2026-06-16",
+    "oib": "62226620908",
+    "kategorija": "Namirnice",
+    "zamka": "10.73 iz porezne tablice"
+  },
+  "tisak": {
+    "trgovina": "Tisak",
+    "iznos": "14.00",
+    "datum": "2026-07-13",
+    "oib": "32497003047",
+    "kategorija": "Ostalo",
+    "zamka": "razmaknuto U K U P N O"
+  },
+  "tokic": {
+    "trgovina": "Tokić",
+    "iznos": "150.64",
+    "datum": "2026-04-18",
+    "oib": "74867487620",
+    "kategorija": "Prijevoz",
+    "zamka": "120.51 je iznos bez PDV-a"
+  }
+}
