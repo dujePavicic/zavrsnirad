@@ -439,3 +439,74 @@ class NaknadniRacunTest(APITestCase):
         sa = self.client.get(reverse("transakcija-list"), {"ima_racun": "true"})
         self.assertEqual(sa.data["count"], 1)
         self.assertIsNotNone(sa.data["results"][0]["racun_id"])
+
+from core.uzorci import POLJA, ucitaj_uzorke
+
+RACUN_PRELOMLJEN = """PLODINE d.d.
+Racun br. 445/1/1
+15.07.2026.
+SVEUKUPNO
+1.245,60
+Kartica"""
+
+# Iznosi koji su na tim racunima zamka - ne smiju zavrsiti kao ukupan iznos
+KRIVI_IZNOSI = {
+    "plodine": "85.33",
+    "ina": "27.90",
+    "lidl": "48.10",
+    "konzum": "10.73",
+    "tokic": "120.51",
+}
+
+# Endpoint vraca kategoriju pod drugim kljucem nego sama funkcija parsera
+KLJUC_U_ODGOVORU = {"predlozena_kategorija": "kategorija_naziv"}
+
+class OcrTest(APITestCase):
+    """Izvlacenje podataka iz OCR teksta, na uzorcima stvarnih racuna."""
+
+    def setUp(self):
+        self.ana = napravi_korisnika("ana@example.com", "ana")
+        self.client.force_authenticate(user=self.ana)
+
+    def analiziraj(self, tekst):
+        return self.client.post(
+            reverse("racun-analiziraj"), {"prepoznati_tekst": tekst}, format="json"
+        )
+
+    def test_svi_uzorci_daju_ocekivane_vrijednosti(self):
+        uzorci = ucitaj_uzorke()
+        self.assertTrue(uzorci, "Nema uzoraka u mapi ocr_uzorci.")
+
+        for uzorak in uzorci:
+            odgovor = self.analiziraj(uzorak["tekst"])
+            self.assertEqual(odgovor.status_code, status.HTTP_200_OK)
+            for polje, kljuc_rezultata in POLJA.items():
+                ocekivana = uzorak["ocekivano"].get(polje)
+                if ocekivana is None:
+                    continue
+                kljuc = KLJUC_U_ODGOVORU.get(kljuc_rezultata, kljuc_rezultata)
+                with self.subTest(uzorak=uzorak["naziv"], polje=polje):
+                    self.assertEqual(odgovor.data[kljuc], ocekivana)
+
+    def test_ne_uzima_zamke_umjesto_ukupnog_iznosa(self):
+        for uzorak in ucitaj_uzorke():
+            krivi = KRIVI_IZNOSI.get(uzorak["naziv"])
+            if krivi is None:
+                continue
+            with self.subTest(uzorak=uzorak["naziv"]):
+                odgovor = self.analiziraj(uzorak["tekst"])
+                self.assertNotEqual(odgovor.data["iznos"], krivi)
+
+    def test_kolicina_ne_znaci_ina(self):
+        odgovor = self.analiziraj("Mali Ducan\n01.08.2026.\nkolicina 2\nUKUPNO 12,00")
+        self.assertEqual(odgovor.data["iznos"], "12.00")
+        self.assertIsNone(odgovor.data["kategorija"])
+
+    def test_iznos_u_sljedecem_retku_i_tisucice(self):
+        odgovor = self.analiziraj(RACUN_PRELOMLJEN)
+        self.assertEqual(odgovor.data["iznos"], "1245.60")
+        self.assertEqual(odgovor.data["trgovina"], "Plodine")
+
+    def test_prazan_tekst_vraca_400(self):
+        odgovor = self.analiziraj("   ")
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
