@@ -338,7 +338,7 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
               physics: const NeverScrollableScrollPhysics(),
               buildDefaultDragHandles: false,
               itemCount: _vidljive.length,
-              onReorder: _presloziVidljive,
+              onReorderItem: _presloziVidljive,
               itemBuilder: (context, i) {
                 return _redakVidljiv(
                   _vidljive[i],
