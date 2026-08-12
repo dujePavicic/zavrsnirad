@@ -1,0 +1,25 @@
+Tokić d.d.
+Ulica 144. brigade Hrvatske vojske 1a
+HR - 10360 Sesvete
+Tel. 01 3033 999 ', Fax. 01 3033 932
+OIB: 74867487620
+web adresa: www.tokic.hr
+Račun - otpremnica
+3000/P033/2
+26-003000/P033/2
+Broj transakcije: 23267
+Viškovo, 18.04.26 ; Str.: 1
+Valuta plaćanja: 18.04.26
+Datum izdavanja: 18.04.26
+Vrijeme izdavanja: 11:31:19
+OIB kupca: 86670913708
+Rb. Br. artikla Kat. broj Opis JMJ Količina Cijena Iznos bez popusta Popust retka % Iznos
+1. 253627 47961 MANŽETA ZGLOBA SET 1,00 19,20 19,20 32 13,05
+2. 354213 616 050 002 VILICA KOM 1,00 85,28 85,28 36,998 53,73
+Ukupno retci: 189,76 69,24 120,51
+Ukupno EUR (bez PDV-a) 120,51
+PDV 25 %: 30,13
+Ukupno EUR s PDV-om: 150,64
+Način plaćanja
+Gotovina 150,64
+Ukupna uplata: 150,64

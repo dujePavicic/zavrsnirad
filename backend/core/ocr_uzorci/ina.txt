@@ -1,0 +1,22 @@
+INA
+INA - INDUSTRIJA NAFTE, d.d.
+Zagreb, Av. V. Holjevca 10
+PDVbr: HR27759560625
+OIB: 27759560625
+MPM Cernik
+datum računa 04.08.2026. u 16:00:07
+br naziv robe/usluge
+kolicina cijena iznos TG
+01 HELL CLASSIC 0,5L
+2,00 kom 2,89 5,78 D1
+Loyalty popust -1,40
+02 DUHAN OLD HOLB.ORIG.
+2,00 kom 9,00 18,00 D1
+UKUPNO 27,90 €
+Popust -1,40 €
+ZA PLATITI 26,50 €
+kartica-VISA 26,50 €
+Povratna naknada 0,20 €
+TG stopa osnovica iznos poreza
+D1 25,00 % 21,04 € 5,26 €
+UKUPNO POREZ 5,26 €
