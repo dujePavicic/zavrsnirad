@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
 
 import '../modeli/kategorija.dart';
@@ -183,7 +184,6 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
     final jeUredivanje = widget.jeUredivanje;
 
     return Scaffold(
-      backgroundColor: shema.surface,
       body: SafeArea(
         bottom: false,
         child: ListView(

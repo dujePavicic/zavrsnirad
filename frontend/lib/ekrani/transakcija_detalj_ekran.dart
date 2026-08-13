@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -228,7 +227,6 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
     final prihod = _transakcija.tip == 'PRIHOD';
 
     return Scaffold(
-      backgroundColor: shema.surface,
       body: SafeArea(
         bottom: false,
         child: ListView(

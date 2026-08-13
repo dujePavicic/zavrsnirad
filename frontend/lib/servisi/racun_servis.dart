@@ -11,6 +11,33 @@ import 'token_spremiste.dart';
 class RacunServis {
   final TokenSpremiste _tokenSpremiste = TokenSpremiste();
 
+Future<Map<String, dynamic>> analizirajRacun(
+  String prepoznatiTekst,
+) async {
+  final access = await _access();
+
+  final odgovor = await http.post(
+    Uri.parse('${ApiConfig.racuni}analiziraj/'),
+    headers: {
+      'Authorization': 'Bearer $access',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode({
+      'prepoznati_tekst': prepoznatiTekst,
+    }),
+  );
+
+  if (odgovor.statusCode >= 200 &&
+      odgovor.statusCode < 300) {
+    return jsonDecode(
+      utf8.decode(odgovor.bodyBytes),
+    ) as Map<String, dynamic>;
+  }
+
+  throw Exception(_poruka(odgovor));
+}
+
+
   Future<String> _access() async {
     final a = await _tokenSpremiste.dohvatiAccess();
     if (a == null) throw Exception('Nisi prijavljen.');

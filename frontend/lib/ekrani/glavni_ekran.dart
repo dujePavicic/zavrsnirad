@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
@@ -45,7 +46,6 @@ class _GlavniEkranState
     ];
 
     return Scaffold(
-      backgroundColor: shema.surface,
       body: IndexedStack(
         index:
             _odabraniIndeks,
@@ -123,8 +123,6 @@ class _ProfilTab
             Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-          shema.surface,
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -336,15 +334,7 @@ class _ProfilTab
               height: 10,
             ),
 
-            _ProfilStavka(
-              ikona: Icons
-                  .notifications_none_rounded,
-              naslov:
-                  'Obavijesti',
-              opis:
-                  'Upravljanje obavijestima',
-              onTap: () {},
-            ),
+            
 
             const SizedBox(
               height: 24,
@@ -365,14 +355,7 @@ class _ProfilTab
               height: 12,
             ),
 
-            _ProfilStavka(
-              ikona: Icons
-                  .palette_outlined,
-              naslov: 'Izgled',
-              opis:
-                  'Tema i izgled aplikacije',
-              onTap: () {},
-            ),
+            
 
             const SizedBox(
               height: 28,
@@ -481,7 +464,7 @@ class _ProfilnaSlikaMala
                 url!,
                 fit: BoxFit.cover,
                 errorBuilder:
-                    (_, __, ___) =>
+                    (_, _, _) =>
                         fallback(),
               )
             : fallback(),
@@ -494,14 +477,14 @@ class _ProfilnaSlikaMala
     String? prezime,
   ) {
     final prvo = ime != null &&
-            ime!.isNotEmpty
-        ? ime![0]
+            ime.isNotEmpty
+        ? ime[0]
         : '';
 
     final drugo =
         prezime != null &&
-                prezime!.isNotEmpty
-            ? prezime![0]
+                prezime.isNotEmpty
+            ? prezime[0]
             : '';
 
     final rezultat =

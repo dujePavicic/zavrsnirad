@@ -177,7 +177,6 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
     final shema = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: shema.surface,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _otvoriUrednik(),
         icon: const Icon(Icons.add_rounded),
