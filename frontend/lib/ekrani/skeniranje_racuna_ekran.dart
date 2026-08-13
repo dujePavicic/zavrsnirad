@@ -8,15 +8,14 @@ class SkeniranjeRacunaEkran extends StatefulWidget {
   const SkeniranjeRacunaEkran({super.key});
 
   @override
-  State<SkeniranjeRacunaEkran> createState() =>
-      _SkeniranjeRacunaEkranState();
+  State<SkeniranjeRacunaEkran> createState() => _SkeniranjeRacunaEkranState();
 }
 
-class _SkeniranjeRacunaEkranState
-    extends State<SkeniranjeRacunaEkran> {
+class _SkeniranjeRacunaEkranState extends State<SkeniranjeRacunaEkran> {
   final ImagePicker _picker = ImagePicker();
-  final TextRecognizer _textRecognizer =
-      TextRecognizer(script: TextRecognitionScript.latin);
+  final TextRecognizer _textRecognizer = TextRecognizer(
+    script: TextRecognitionScript.latin,
+  );
 
   XFile? _slika;
   String _prepoznatiTekst = '';
@@ -46,13 +45,9 @@ class _SkeniranjeRacunaEkranState
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Greška pri fotografiranju: $e',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Greška pri fotografiranju: $e')));
     }
   }
 
@@ -74,13 +69,9 @@ class _SkeniranjeRacunaEkranState
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Greška pri odabiru slike: $e',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Greška pri odabiru slike: $e')));
     }
   }
 
@@ -90,11 +81,9 @@ class _SkeniranjeRacunaEkranState
     });
 
     try {
-      final inputImage =
-          InputImage.fromFilePath(slika.path);
+      final inputImage = InputImage.fromFilePath(slika.path);
 
-      final rezultat =
-          await _textRecognizer.processImage(inputImage);
+      final rezultat = await _textRecognizer.processImage(inputImage);
 
       debugPrint('========== OCR POČETAK ==========');
       debugPrint(rezultat.text);
@@ -108,13 +97,9 @@ class _SkeniranjeRacunaEkranState
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Greška tijekom OCR obrade: $e',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Greška tijekom OCR obrade: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -134,9 +119,7 @@ class _SkeniranjeRacunaEkranState
       appBar: AppBar(
         title: const Text(
           'Skeniranje računa',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -144,8 +127,7 @@ class _SkeniranjeRacunaEkranState
       ),
       body: SafeArea(
         child: ListView(
-          padding:
-              const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
             Text(
               'OCR test',
@@ -183,13 +165,10 @@ class _SkeniranjeRacunaEkranState
                 decoration: BoxDecoration(
                   color: shema.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: shema.outlineVariant,
-                  ),
+                  border: Border.all(color: shema.outlineVariant),
                 ),
                 child: Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.receipt_long_outlined,
@@ -199,8 +178,7 @@ class _SkeniranjeRacunaEkranState
                     const SizedBox(height: 12),
                     Text(
                       'Još nema odabranog računa',
-                      style:
-                          theme.textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -214,14 +192,9 @@ class _SkeniranjeRacunaEkranState
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed:
-                        _obrada ? null : _fotografirajRacun,
-                    icon: const Icon(
-                      Icons.camera_alt_outlined,
-                    ),
-                    label: const Text(
-                      'Fotografiraj',
-                    ),
+                    onPressed: _obrada ? null : _fotografirajRacun,
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('Fotografiraj'),
                   ),
                 ),
 
@@ -229,14 +202,9 @@ class _SkeniranjeRacunaEkranState
 
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed:
-                        _obrada ? null : _odaberiIzGalerije,
-                    icon: const Icon(
-                      Icons.photo_library_outlined,
-                    ),
-                    label: const Text(
-                      'Galerija',
-                    ),
+                    onPressed: _obrada ? null : _odaberiIzGalerije,
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Galerija'),
                   ),
                 ),
               ],
@@ -249,16 +217,13 @@ class _SkeniranjeRacunaEkranState
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 12),
-                    Text(
-                      'Prepoznavanje teksta...',
-                    ),
+                    Text('Prepoznavanje teksta...'),
                   ],
                 ),
               ),
             ],
 
-            if (!_obrada &&
-                _prepoznatiTekst.isNotEmpty) ...[
+            if (!_obrada && _prepoznatiTekst.isNotEmpty) ...[
               const SizedBox(height: 28),
 
               Text(
@@ -275,15 +240,11 @@ class _SkeniranjeRacunaEkranState
                 decoration: BoxDecoration(
                   color: shema.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: shema.outlineVariant,
-                  ),
+                  border: Border.all(color: shema.outlineVariant),
                 ),
                 child: SelectableText(
                   _prepoznatiTekst,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    height: 1.5,
-                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
                 ),
               ),
             ],
