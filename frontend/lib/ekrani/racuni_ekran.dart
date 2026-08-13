@@ -148,15 +148,19 @@ class _RacuniEkranState extends State<RacuniEkran> {
                 ikona: Icons.document_scanner_outlined,
                 naslov: 'Skeniraj račun',
                 opis: 'Fotografiraj račun i pripremi ga za OCR unos.',
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(sheetContext);
 
-                  Navigator.push(
+                  final spremljen = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
                       builder: (_) => const SkeniranjeRacunaEkran(),
                     ),
                   );
+
+                  if (spremljen == true && mounted) {
+                    _osvjeziListu();
+                  }
                 },
               ),
 
@@ -190,7 +194,6 @@ class _RacuniEkranState extends State<RacuniEkran> {
     final shema = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: shema.surface,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_racuni',
         onPressed: _otvoriDodavanje,
@@ -598,7 +601,7 @@ class _Slicica extends StatelessWidget {
           width: 54,
           height: 54,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(),
+          errorBuilder: (_, _, _) => _placeholder(),
           loadingBuilder: (ctx, child, progress) {
             return progress == null ? child : _placeholder(ucitava: true);
           },

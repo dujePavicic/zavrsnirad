@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -193,7 +194,6 @@ class _ProfilUrediEkranState
     final shema = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: shema.surface,
       appBar: AppBar(
         title: const Text(
           'Osobni podaci',
@@ -201,7 +201,7 @@ class _ProfilUrediEkranState
             fontWeight: FontWeight.w700,
           ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: shema.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -406,7 +406,7 @@ class _ProfilnaSlika extends StatelessWidget {
             ? Image.memory(
                 novaSlikaBytes!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     fallback(),
               )
             : korisnik.profilnaSlika != null &&
@@ -414,7 +414,7 @@ class _ProfilnaSlika extends StatelessWidget {
                 ? Image.network(
                     korisnik.profilnaSlika!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
+                    errorBuilder: (_, _, _) =>
                         fallback(),
                   )
                 : fallback(),

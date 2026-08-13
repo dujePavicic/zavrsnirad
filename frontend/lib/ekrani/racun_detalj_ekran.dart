@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import '../modeli/racun.dart';
 import '../pomocno/format.dart';
 import '../servisi/racun_servis.dart';
+import '../servisi/transakcija_servis.dart';
+
+enum _OpcijaBrisanja {
+  samoRacun,
+  cijelaTransakcija,
+}
 
 class RacunDetaljEkran extends StatelessWidget {
   final Racun racun;
@@ -13,35 +19,61 @@ class RacunDetaljEkran extends StatelessWidget {
   });
 
   Future<void> _obrisi(BuildContext context) async {
-    final potvrda = await showDialog<bool>(
+    final odabir = await showDialog<_OpcijaBrisanja>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Obrisati račun?'),
-        content: const Text(
-          'Bit će obrisani samo račun i njegova slika. '
-          'Financijska transakcija će ostati spremljena i ponovno će se prikazati među ručnim transakcijama.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Odustani'),
+      builder: (dialogContext) {
+        final shema = Theme.of(dialogContext).colorScheme;
+
+        return AlertDialog(
+          title: const Text('Što želiš obrisati?'),
+          content: const Text(
+            'Možeš obrisati samo račun i njegovu sliku ili cijelu '
+            'transakciju zajedno s povezanim računom.',
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Odustani'),
             ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Obriši'),
-          ),
-        ],
-      ),
+            TextButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _OpcijaBrisanja.samoRacun,
+              ),
+              child: const Text('Samo račun'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: shema.error,
+                foregroundColor: shema.onError,
+              ),
+              onPressed: racun.transakcija == null
+                  ? null
+                  : () => Navigator.pop(
+                        dialogContext,
+                        _OpcijaBrisanja.cijelaTransakcija,
+                      ),
+              child: const Text('Cijelu transakciju'),
+            ),
+          ],
+        );
+      },
     );
 
-    if (potvrda != true) return;
+    if (odabir == null) return;
 
     try {
-      await RacunServis().obrisi(racun.id);
+      if (odabir == _OpcijaBrisanja.samoRacun) {
+        await RacunServis().obrisi(racun.id);
+      } else {
+        final transakcija = racun.transakcija;
+
+        if (transakcija == null) {
+          throw Exception('Povezana transakcija nije pronađena.');
+        }
+
+        await TransakcijaServis().obrisi(transakcija.id);
+      }
 
       if (context.mounted) {
         Navigator.pop(context, true);
@@ -50,7 +82,9 @@ class RacunDetaljEkran extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(
+              e.toString().replaceFirst('Exception: ', ''),
+            ),
           ),
         );
       }
@@ -64,7 +98,6 @@ class RacunDetaljEkran extends StatelessWidget {
     final boja = bojaIzHexa(racun.kategorijaBoja);
 
     return Scaffold(
-      backgroundColor: shema.surface,
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -122,51 +155,6 @@ class RacunDetaljEkran extends StatelessWidget {
               ),
             ],
 
-            const SizedBox(height: 26),
-
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Prepoznati tekst',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.document_scanner_outlined,
-                  size: 20,
-                  color: shema.onSurfaceVariant,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: shema.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: shema.outlineVariant.withValues(alpha: 0.45),
-                ),
-              ),
-              child: Text(
-                racun.prepoznatiTekst.isNotEmpty
-                    ? racun.prepoznatiTekst
-                    : 'Nema prepoznatog teksta.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
-                  height: 1.45,
-                  color: racun.prepoznatiTekst.isNotEmpty
-                      ? shema.onSurface
-                      : shema.onSurfaceVariant,
-                ),
-              ),
-            ),
-
             const SizedBox(height: 28),
           ],
         ),
@@ -212,32 +200,48 @@ class RacunDetaljEkran extends StatelessWidget {
     final shema = theme.colorScheme;
 
     if (racun.slika != null && racun.slika!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          constraints: const BoxConstraints(maxHeight: 360),
-          color: shema.surfaceContainerHigh,
-          width: double.infinity,
-          child: Image.network(
-            racun.slika!,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => _placeholder(context),
-            loadingBuilder: (c, w, p) {
-              return p == null
-                  ? w
-                  : const SizedBox(
-                      height: 220,
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-            },
+      return GestureDetector(
+        onTap: () => _otvoriSliku(context),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 360),
+            color: shema.surfaceContainerHigh,
+            width: double.infinity,
+            child: Image.network(
+              racun.slika!,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => _placeholder(context),
+              loadingBuilder: (c, w, p) {
+                return p == null
+                    ? w
+                    : const SizedBox(
+                        height: 220,
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+              },
+            ),
           ),
         ),
       );
     }
 
     return _placeholder(context);
+  }
+
+  Future<void> _otvoriSliku(BuildContext context) async {
+    if (racun.slika == null || racun.slika!.isEmpty) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _PregledSlikeRacuna(
+          slikaUrl: racun.slika!,
+        ),
+      ),
+    );
   }
 
   Widget _placeholder(BuildContext context) {
@@ -269,6 +273,55 @@ class RacunDetaljEkran extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PregledSlikeRacuna extends StatelessWidget {
+  final String slikaUrl;
+
+  const _PregledSlikeRacuna({
+    required this.slikaUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Pregled računa',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: InteractiveViewer(
+          minScale: 0.8,
+          maxScale: 5,
+          boundaryMargin: const EdgeInsets.all(80),
+          child: Center(
+            child: Image.network(
+              slikaUrl,
+              fit: BoxFit.contain,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              },
+              errorBuilder: (_, __, ___) {
+                return const Center(
+                  child: Text(
+                    'Slika računa se ne može učitati.',
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }

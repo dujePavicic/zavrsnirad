@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
 
 import '../modeli/pregled.dart';
@@ -258,7 +259,6 @@ class BudzetEkran extends StatelessWidget {
     final pruzatelj = context.watch<PregledPruzatelj>();
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text(
           'Budžet',
@@ -267,7 +267,6 @@ class BudzetEkran extends StatelessWidget {
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.transparent,
       ),
       body: _tijelo(context, pruzatelj),
     );

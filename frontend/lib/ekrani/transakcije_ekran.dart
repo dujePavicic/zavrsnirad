@@ -362,7 +362,6 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     final shema = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: shema.surface,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_transakcije',
         onPressed: _otvoriDodavanje,
