@@ -38,6 +38,7 @@ class _SkeniranjeRacunaEkranState
       TextEditingController();
 
   XFile? _slika;
+  // ignore: unused_field
   String _prepoznatiTekst = '';
   Map<String, dynamic>? _analiza;
 
