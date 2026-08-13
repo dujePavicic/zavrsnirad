@@ -173,6 +173,8 @@ def novac(vrijednost):
     """Decimal -> string s dvije decimale, da frontend uvijek dobije isti oblik."""
     return str((vrijednost or Decimal("0")).quantize(Decimal("0.01")))
 
+ZADANO_ZADNJIH = 10
+NAJVISE_ZADNJIH = 50
 
 class PregledPogled(APIView):
     """GET /api/pregled/?godina=&mjesec= — zbrojevi za pocetni ekran."""
@@ -281,8 +283,14 @@ class PregledPogled(APIView):
 
         dnevni_prosjek = troskovi / protekli_dani if protekli_dani else Decimal("0")
 
+        try:
+            koliko = int(zahtjev.query_params.get("zadnjih", ZADANO_ZADNJIH))
+        except (TypeError, ValueError):
+            koliko = ZADANO_ZADNJIH
+        koliko = max(1, min(koliko, NAJVISE_ZADNJIH))
+
         zadnje = TransakcijaSerializer(
-            transakcije.select_related("kategorija", "racun")[:5],
+            transakcije.select_related("kategorija", "racun")[:koliko],
             many=True,
             context={"request": zahtjev},
         ).data
