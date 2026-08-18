@@ -12,9 +12,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from django.core.cache import cache
 
-from .models import Budzet, Kategorija, Racun, Transakcija
+from .models import Budzet, Kategorija, Racun, Transakcija, Garancija
 
-
+from datetime import timedelta
 
 LOZINKA = "TajnaLozinka123"
 
@@ -510,3 +510,155 @@ class OcrTest(APITestCase):
     def test_prazan_tekst_vraca_400(self):
         odgovor = self.analiziraj("   ")
         self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+
+class GarancijaTest(APITestCase):
+    """Garancije, filtri i prikaz u pregledu."""
+
+    def setUp(self):
+        self.ana = napravi_korisnika("ana@example.com", "ana")
+        self.danas = date.today()
+        self.client.force_authenticate(user=self.ana)
+
+    def stvori(self, naziv, dana_do_isteka, **dodatno):
+        podaci = {
+            "naziv_proizvoda": naziv,
+            "datum_kupnje": (self.danas - timedelta(days=1)).isoformat(),
+            "datum_isteka": (self.danas + timedelta(days=dana_do_isteka)).isoformat(),
+        }
+        podaci.update(dodatno)
+        return self.client.post(reverse("garancija-list"), podaci)
+
+    def test_stvaranje_bez_racuna(self):
+        odgovor = self.stvori("Bosch usisavač", 730, serijski_broj="BOSCH123")
+        self.assertEqual(odgovor.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(odgovor.data["racun"])
+        self.assertIsNone(odgovor.data["racun_trgovina"])
+        self.assertFalse(odgovor.data["istekla"])
+
+    def test_istek_prije_kupnje_vraca_400(self):
+        odgovor = self.client.post(
+            reverse("garancija-list"),
+            {
+                "naziv_proizvoda": "Test",
+                "datum_kupnje": "2026-08-14",
+                "datum_isteka": "2026-01-01",
+            },
+        )
+        self.assertEqual(odgovor.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("datum_isteka", odgovor.data)
+
+    def test_dozivotna_garancija_bez_datuma_isteka(self):
+        odgovor = self.client.post(
+            reverse("garancija-list"),
+            {
+                "naziv_proizvoda": "Victorinox nožić",
+                "datum_kupnje": self.danas.isoformat(),
+            },
+        )
+        self.assertEqual(odgovor.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(odgovor.data["dozivotna"])
+        self.assertFalse(odgovor.data["istekla"])
+        self.assertIsNone(odgovor.data["dana_do_isteka"])
+        self.assertIsNone(odgovor.data["datum_isteka"])
+
+    def test_dozivotna_je_aktivna_ali_ne_istjece(self):
+        self.client.post(
+            reverse("garancija-list"),
+            {"naziv_proizvoda": "Doživotna", "datum_kupnje": self.danas.isoformat()},
+        )
+        self.stvori("Uskoro", 10)
+        putanja = reverse("garancija-list")
+        self.assertEqual(self.client.get(putanja, {"aktivne": "true"}).data["count"], 2)
+        self.assertEqual(self.client.get(putanja, {"istekle": "true"}).data["count"], 0)
+        self.assertEqual(
+            self.client.get(putanja, {"istjece_za_dana": "365"}).data["count"], 1
+        )
+
+    def test_pregled_broji_dozivotnu_kao_aktivnu(self):
+        self.client.post(
+            reverse("garancija-list"),
+            {"naziv_proizvoda": "Doživotna", "datum_kupnje": self.danas.isoformat()},
+        )
+        odgovor = self.client.get(reverse("pregled"))
+        self.assertEqual(odgovor.data["garancije"]["aktivne"], 1)
+        self.assertEqual(odgovor.data["garancije"]["istjece_uskoro"], 0)
+        self.assertIsNone(odgovor.data["garancije"]["najblizi_istek"])
+
+    def test_filtri_aktivne_istekle_i_skori_istek(self):
+        self.stvori("Aktivna", 365)
+        self.stvori("Uskoro", 10)
+        Garancija.objects.create(
+            korisnik=self.ana,
+            naziv_proizvoda="Istekla",
+            datum_kupnje=self.danas - timedelta(days=800),
+            datum_isteka=self.danas - timedelta(days=1),
+        )
+        putanja = reverse("garancija-list")
+        self.assertEqual(self.client.get(putanja, {"aktivne": "true"}).data["count"], 2)
+        self.assertEqual(self.client.get(putanja, {"istekle": "true"}).data["count"], 1)
+        self.assertEqual(
+            self.client.get(putanja, {"istjece_za_dana": "30"}).data["count"], 1
+        )
+
+    def test_ne_vidi_tude_garancije(self):
+        ivan = napravi_korisnika("ivan@example.com", "ivan")
+        Garancija.objects.create(
+            korisnik=ivan,
+            naziv_proizvoda="Ivanova",
+            datum_kupnje=self.danas,
+            datum_isteka=self.danas + timedelta(days=10),
+        )
+        self.assertEqual(self.client.get(reverse("garancija-list")).data["count"], 0)
+
+    def test_pregled_sadrzi_sazetak_garancija(self):
+        self.stvori("Aktivna", 365)
+        self.stvori("Uskoro", 10)
+        odgovor = self.client.get(reverse("pregled"))
+        sazetak = odgovor.data["garancije"]
+        self.assertEqual(sazetak["aktivne"], 2)
+        self.assertEqual(sazetak["istjece_uskoro"], 1)
+        self.assertEqual(
+            sazetak["najblizi_istek"], (self.danas + timedelta(days=10)).isoformat()
+        )
+
+    def test_pregled_bez_garancija(self):
+        odgovor = self.client.get(reverse("pregled"))
+        self.assertEqual(odgovor.data["garancije"]["aktivne"], 0)
+        self.assertIsNone(odgovor.data["garancije"]["najblizi_istek"])
+
+
+class TjedanIFilteriTest(APITestCase):
+    """Tjedna potrosnja i filtriranje transakcija po mjesecu."""
+
+    def setUp(self):
+        self.ana = napravi_korisnika("ana@example.com", "ana")
+        self.namirnice = Kategorija.objects.get(naziv="Namirnice", vlasnik__isnull=True)
+        self.danas = date.today()
+        self.client.force_authenticate(user=self.ana)
+
+    def trosak(self, iznos, datum):
+        return Transakcija.objects.create(
+            korisnik=self.ana,
+            tip=Transakcija.TipTransakcije.TROSAK,
+            iznos=Decimal(iznos),
+            kategorija=self.namirnice,
+            datum=datum,
+        )
+
+    def test_tjedan_potroseno_racuna_od_ponedjeljka(self):
+        pocetak = self.danas - timedelta(days=self.danas.weekday())
+        self.trosak("20.00", pocetak)
+        self.trosak("15.00", self.danas)
+        self.trosak("99.00", pocetak - timedelta(days=1))
+        odgovor = self.client.get(reverse("pregled"))
+        self.assertEqual(odgovor.data["tjedan_potroseno"], "35.00")
+        self.assertEqual(odgovor.data["tjedan_od"], pocetak.isoformat())
+
+    def test_filtar_po_godini_i_mjesecu(self):
+        self.trosak("10.00", date(2026, 8, 5))
+        self.trosak("20.00", date(2026, 7, 5))
+        odgovor = self.client.get(
+            reverse("transakcija-list"), {"godina": 2026, "mjesec": 8}
+        )
+        self.assertEqual(odgovor.data["count"], 1)
+        self.assertFalse(odgovor.data["results"][0]["ima_racun"])

@@ -23,7 +23,7 @@ from .models import BudzetKategorije
 
 from .izracuni import prihodi_mjeseca, raspolozivi_budzet, rasporedeno_po_kategorijama
 
-
+from .models import Garancija
 
 NAJVECA_SLIKA = 5 * 1024 * 1024
 DOPUSTENI_FORMATI_SLIKE = {"JPEG", "PNG", "WEBP"}
@@ -158,10 +158,15 @@ class TransakcijaSerializer(serializers.ModelSerializer):
             "opis",
             "datum_unosa",
             "racun_id",
+            "ima_racun",
         ]
         read_only_fields = ["id", "datum_unosa"]
 
     racun_id = serializers.SerializerMethodField()
+    ima_racun = serializers.SerializerMethodField()
+
+    def get_ima_racun(self, transakcija):
+        return getattr(transakcija, "racun", None) is not None
 
     def get_racun_id(self, transakcija):
         racun = getattr(transakcija, "racun", None)
@@ -356,8 +361,15 @@ class ProfilSerializer(serializers.ModelSerializer):
     class Meta:
         model = Korisnik
         fields = [
-            "id", "email", "korisnicko_ime", "ime", "prezime",
-            "datum_registracije", "profilna_slika",
+            "id",
+            "email",
+            "korisnicko_ime",
+            "ime",
+            "prezime",
+            "datum_registracije",
+            "profilna_slika",
+            "obavijesti_garancije",
+            "podsjetnik_garancije_dana",
         ]
         read_only_fields = ["id", "email", "datum_registracije"]
 
@@ -381,7 +393,11 @@ class ProfilSerializer(serializers.ModelSerializer):
         if stara and nova != stara:
             stara.delete(save=False)
         return super().update(korisnik, provjereni_podaci)
-
+    
+    def validate_podsjetnik_garancije_dana(self, vrijednost):
+        if not 1 <= vrijednost <= 365:
+            raise serializers.ValidationError("Podsjetnik mora biti između 1 i 365 dana.")
+        return vrijednost
 
 class BudzetKategorijeSerializer(serializers.ModelSerializer):
     kategorija_naziv = serializers.CharField(source="kategorija.naziv", read_only=True)
@@ -437,5 +453,55 @@ class BudzetKategorijeSerializer(serializers.ModelSerializer):
         if iznos is not None and iznos > slobodno:
             raise serializers.ValidationError(
                 {"iznos": f"Za raspodjelu je preostalo {slobodno} € od {raspolozivo} €."}
+            )
+        return podaci
+
+class GarancijaSerializer(serializers.ModelSerializer):
+    racun_trgovina = serializers.CharField(source="racun.trgovina", read_only=True, default=None)
+    racun_slika = serializers.SerializerMethodField()
+    dana_do_isteka = serializers.IntegerField(read_only=True)
+    istekla = serializers.BooleanField(read_only=True)
+    dozivotna = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Garancija
+        fields = [
+            "id",
+            "naziv_proizvoda",
+            "datum_kupnje",
+            "datum_isteka",
+            "serijski_broj",
+            "napomena",
+            "obavijesti",
+            "racun",
+            "racun_trgovina",
+            "racun_slika",
+            "dana_do_isteka",
+            "istekla",
+            "dozivotna",
+            "datum_unosa",
+        ]
+        read_only_fields = ["id", "datum_unosa"]
+
+    def get_racun_slika(self, garancija):
+        if not garancija.racun or not garancija.racun.slika:
+            return None
+        zahtjev = self.context.get("request")
+        url = garancija.racun.slika.url
+        return zahtjev.build_absolute_uri(url) if zahtjev else url
+
+    def validate_racun(self, racun):
+        if racun is None:
+            return racun
+        if racun.transakcija.korisnik_id != self.context["request"].user.id:
+            raise serializers.ValidationError("Račun ne postoji.")
+        return racun
+
+    def validate(self, podaci):
+        kupnja = podaci.get("datum_kupnje", getattr(self.instance, "datum_kupnje", None))
+        istek = podaci.get("datum_isteka", getattr(self.instance, "datum_isteka", None))
+        if kupnja and istek and istek < kupnja:
+            raise serializers.ValidationError(
+                {"datum_isteka": "Datum isteka ne može biti prije datuma kupnje."}
             )
         return podaci
