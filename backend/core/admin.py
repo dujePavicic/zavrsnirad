@@ -4,6 +4,8 @@ from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from .models import Korisnik, Budzet, Kategorija, Racun, Transakcija
 
+from .models import Garancija
+
 class KorisnikCreationForm(UserCreationForm):
     class Meta:
         model = Korisnik
@@ -75,3 +77,9 @@ class RacunAdmin(admin.ModelAdmin):
 class BudzetAdmin(admin.ModelAdmin):
     list_display = ("korisnik", "godina", "mjesec", "iznos")
     list_filter = ("godina", "mjesec")
+
+@admin.register(Garancija)
+class GarancijaAdmin(admin.ModelAdmin):
+    list_display = ("naziv_proizvoda", "datum_kupnje", "datum_isteka", "korisnik")
+    list_filter = ("datum_isteka",)
+    search_fields = ("naziv_proizvoda", "serijski_broj")

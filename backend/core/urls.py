@@ -10,6 +10,7 @@ usmjerivac.register("transakcije", views.TransakcijaViewSet, basename="transakci
 usmjerivac.register("budzeti", views.BudzetViewSet, basename="budzet")
 usmjerivac.register("racuni", views.RacunViewSet, basename="racun")
 usmjerivac.register("budzeti-kategorija", views.BudzetKategorijeViewSet, basename="budzet-kategorije")
+usmjerivac.register("garancije", views.GarancijaViewSet, basename="garancija")
 
 urlpatterns = [
     path("registracija/", views.RegistracijaPogled.as_view(), name="registracija"),

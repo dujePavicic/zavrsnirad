@@ -1,0 +1,35 @@
+&
+Datum: 27.7 .2026 13:44:06
+Br. računa: 18960-PO33-1
+Osoblj šogolj I
+Description
+3636 ČEP ULJA kom
+Kat. broj
+Total EUR
+Kartica
+mStart
+VATS
+25 25
+Tokić d.d.
+Viškovo 138
+51216 Viškovo
+Tel, 0800 5775
+OIB 74867487620
+ZKI:
+JIR:
+305 056 001
+Net.Amt
+Trans:
+3,68
+VAT
+0,92
+f5317a72867026f82c4e57a25bea354a
+2717
+Amount
+HVALA NA POVJERENJU!
+4,60
+4,60
+-4,60
+Amount
+4,60
+4432a935-ad5a-4c6d-a275-1dbd9f5a074d

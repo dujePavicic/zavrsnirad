@@ -62,7 +62,10 @@ class Korisnik(AbstractBaseUser, PermissionsMixin):
     profilna_slika = models.ImageField(
         "profilna slika", upload_to="profili/", null=True, blank=True
     )
-
+    obavijesti_garancije = models.BooleanField("obavijesti o garancijama", default=True)
+    podsjetnik_garancije_dana = models.PositiveIntegerField(
+        "podsjetnik (dana prije isteka)", default=30
+    )
     is_active = models.BooleanField("aktivan", default=True)
     is_staff = models.BooleanField("član osoblja", default=False)
 
@@ -275,3 +278,67 @@ def obrisi_profilnu_sliku(sender, instance, **kwargs):
     """Brise profilnu sliku s diska kad se korisnik obrise."""
     if instance.profilna_slika:
         instance.profilna_slika.delete(save=False)
+
+class Garancija(models.Model):
+    """Garancija za kupljeni proizvod. Moze, ali ne mora biti vezana uz racun."""
+
+    korisnik = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="korisnik",
+        on_delete=models.CASCADE,
+        related_name="garancije",
+    )
+    racun = models.ForeignKey(
+        Racun,
+        verbose_name="račun",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="garancije",
+        help_text="Neobavezno — garancija moze postojati i bez skeniranog racuna.",
+    )
+    naziv_proizvoda = models.CharField("naziv proizvoda", max_length=255)
+    datum_kupnje = models.DateField("datum kupnje")
+    datum_isteka = models.DateField(
+        "datum isteka",
+        null=True,
+        blank=True,
+        help_text="Prazno znaci dozivotna garancija.",
+    )
+    serijski_broj = models.CharField("serijski broj", max_length=255, blank=True, default="")
+    napomena = models.TextField("napomena", blank=True, default="")
+    obavijesti = models.BooleanField("obavijesti", default=True)
+    datum_unosa = models.DateTimeField("datum unosa", auto_now_add=True)
+    datum_izmjene = models.DateTimeField("datum izmjene", auto_now=True)
+
+    class Meta:
+        verbose_name = "garancija"
+        verbose_name_plural = "garancije"
+        ordering = ["datum_isteka"]
+        indexes = [models.Index(fields=["korisnik", "datum_isteka"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(datum_isteka__isnull=True)
+                | models.Q(datum_isteka__gte=models.F("datum_kupnje")),
+                name="istek_nakon_kupnje",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.naziv_proizvoda} (do {self.datum_isteka})"
+
+    @property
+    def dozivotna(self):
+        return self.datum_isteka is None
+
+    @property
+    def dana_do_isteka(self):
+        if self.datum_isteka is None:
+            return None
+        return (self.datum_isteka - timezone.localdate()).days
+
+    @property
+    def istekla(self):
+        if self.datum_isteka is None:
+            return False
+        return self.datum_isteka < timezone.localdate()

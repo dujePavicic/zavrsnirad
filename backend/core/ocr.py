@@ -4,7 +4,7 @@ import re
 import unicodedata
 from datetime import date
 from decimal import Decimal, InvalidOperation
-
+from collections import Counter
 
 def bez_kvacica(tekst):
     """Mala slova bez dijakritike, da se 'PLAĆENO' i 'placeno' poklope."""
@@ -51,6 +51,10 @@ ZABRANJENI_RETCI = [
     "bez pdv",
 ]
 
+OZNAKE_POPUSTA = ["popust", "rabat", "ustedjeli", "usteda"]
+
+OBRAZAC_JEDINICE = re.compile(r"\b(kom|kg|dag|kn|ml|lit|kos|pak)\b")
+
 # Kljuc za trazenje -> (naziv za prikaz, predlozena kategorija).
 # Kljucevi su bez kvacica i malim slovima.
 POZNATE_TRGOVINE = {
@@ -68,6 +72,11 @@ POZNATE_TRGOVINE = {
     "crodux": ("Crodux", "Prijevoz"),
     "tifon": ("Tifon", "Prijevoz"),
     "autotrolej": ("Autotrolej", "Prijevoz"),
+    "hrvatske autoceste": ("Hrvatske autoceste", "Prijevoz"),
+    "bina istra": ("Bina Istra", "Prijevoz"),
+    "tedi": ("TEDi", "Kućanstvo"),
+    "pepco": ("Pepco", "Odjeća"),
+    "kik": ("KiK", "Odjeća"),
     "ljekarna": ("Ljekarna", "Zdravlje"),
     "muller": ("Müller", "Kućanstvo"),
     "bipa": ("Bipa", "Kućanstvo"),
@@ -88,8 +97,8 @@ POZNATE_TRGOVINE = {
 # jer se kao podniz javljaju i u obicnim rijecima ("kolicina", "trgovina").
 NAJKRACI_IZVAN_ZAGLAVLJA = 4
 
-OBRAZAC_IZNOSA = re.compile(r"\d[\d.\s]*[,.]\d{2}(?!\d)")
-OBRAZAC_DATUMA = re.compile(r"\b(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})\b")
+OBRAZAC_IZNOSA = re.compile(r"\d[\d.]*[,.]\d{2}(?!\d)")
+OBRAZAC_DATUMA = re.compile(r"\b(\d{1,2})\s*[.\-/]\s*(\d{1,2})\s*[.\-/\s]\s*(\d{4}|\d{2})(?!\d)")
 OBRAZAC_ISO_DATUMA = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 OBRAZAC_OIB_UZ_OZNAKU = re.compile(r"oib\D{0,6}(\d{11})")
 OBRAZAC_BILO_KOJI_OIB = re.compile(r"\b\d{11}\b")
@@ -111,13 +120,24 @@ def u_decimal(zapis):
         return None
 
 
+def bez_datuma(redak):
+    """Uklanja datume prije trazenja iznosa - '14.08.2026' inace izgleda kao 14,08 EUR."""
+    redak = OBRAZAC_ISO_DATUMA.sub(" ", redak)
+    return OBRAZAC_DATUMA.sub(" ", redak)
+
+
 def iznosi_u_retku(redak):
-    return [iznos for iznos in (u_decimal(z) for z in OBRAZAC_IZNOSA.findall(redak)) if iznos]
+    ocisceno = bez_datuma(redak)
+    return [
+        iznos for iznos in (u_decimal(z) for z in OBRAZAC_IZNOSA.findall(ocisceno)) if iznos
+    ]
 
 
 def je_zabranjen(ocisceni_redak):
-    """Redak porezne tablice, popusta, povrata i slicnog nikad nije ukupan iznos."""
+    """Redak porezne tablice, popusta, kolicine i slicnog nikad nije ukupan iznos."""
     if "%" in ocisceni_redak:
+        return True
+    if OBRAZAC_JEDINICE.search(ocisceni_redak):
         return True
     return any(rijec in ocisceni_redak for rijec in ZABRANJENI_RETCI)
 
@@ -125,6 +145,22 @@ def je_zabranjen(ocisceni_redak):
 def je_tablicni_redak(redak):
     """Tri ili vise iznosa u retku znaci stavku ili porezni redak, ne ukupan iznos."""
     return len(iznosi_u_retku(redak)) >= 3
+
+
+def ima_gotovinu(ocisceni_retci):
+    """Racun placen gotovinom sadrzi i predani iznos, koji nije ukupan."""
+    return any(
+        "gotovin" in redak or "novac za" in redak or "kusur" in redak
+        for redak in ocisceni_retci
+    )
+
+
+def ima_gotovinu(ocisceni_retci):
+    """Racun placen gotovinom sadrzi i predani iznos, koji nije ukupan."""
+    return any(
+        "gotovin" in redak or "novac za" in redak or "kusur" in redak
+        for redak in ocisceni_retci
+    )
 
 
 def pronadji_iznos(retci):
@@ -156,8 +192,29 @@ def pronadji_iznos(retci):
         if not preskoci[redni_broj]
         for iznos in iznosi_u_retku(redak)
     ]
-    return max(svi) if svi else None
+    if not svi:
+        return None
 
+    # Kod gotovinskog placanja predani iznos je zaokruzen (50,00 / 100,00) i veci
+    # od ukupnog. Pravilo se primjenjuje samo ako je najveci kandidat okrugao,
+    # da ne pokvari racune ciji je stvarni ukupan iznos okrugao.
+    if ima_gotovinu(ocisceni) and max(svi) % 10 == 0:
+        neokrugli = [iznos for iznos in svi if iznos % 10 != 0]
+        if neokrugli:
+            return max(neokrugli)
+
+    # Kod popusta je najveci iznos onaj PRIJE popusta, a stvarno placeni se
+    # ponavlja (kartica, potvrda, terecenje).
+    ima_popust = any(
+        oznaka in redak for redak in ocisceni for oznaka in OZNAKE_POPUSTA
+    )
+    if ima_popust:
+        ponavljanja = Counter(svi)
+        najcesci = max(ponavljanja.values())
+        if najcesci >= 2:
+            return max(iznos for iznos, broj in ponavljanja.items() if broj == najcesci)
+
+    return max(svi)
 
 def kandidati_datuma(tekst):
     nadjeni = []
@@ -203,12 +260,26 @@ def pronadji_trgovinu(retci):
     zaglavlje = bez_kvacica(" ".join(retci[:8]))
     cijeli = bez_kvacica(" ".join(retci))
 
-    for tekst, najkraci in ((zaglavlje, 1), (cijeli, NAJKRACI_IZVAN_ZAGLAVLJA)):
+    # 1. krug: zaglavlje, dopustene su i kratke oznake
+    for kljuc, (naziv, kategorija) in POZNATE_TRGOVINE.items():
+        if re.search(rf"(?<![a-z0-9]){re.escape(kljuc)}(?![a-z0-9])", zaglavlje):
+            return naziv, kategorija
+
+    # 2. krug: cijeli tekst, samo dulje oznake
+    for kljuc, (naziv, kategorija) in POZNATE_TRGOVINE.items():
+        if len(kljuc) < NAJKRACI_IZVAN_ZAGLAVLJA:
+            continue
+        if re.search(rf"(?<![a-z0-9]){re.escape(kljuc)}(?![a-z0-9])", cijeli):
+            return naziv, kategorija
+
+    # 3. krug: kratke oznake i izvan zaglavlja, ali samo na POCETKU retka,
+    # kao u "INA- INDUSTRIJA NAFTE, d.d." — tako "kolicina" i "trgovina" ne prolaze
+    for redak in retci:
+        ocisceni = bez_kvacica(redak)
         for kljuc, (naziv, kategorija) in POZNATE_TRGOVINE.items():
-            if len(kljuc) < najkraci:
+            if len(kljuc) >= NAJKRACI_IZVAN_ZAGLAVLJA:
                 continue
-            obrazac = rf"(?<![a-z0-9]){re.escape(kljuc)}(?![a-z0-9])"
-            if re.search(obrazac, tekst):
+            if re.match(rf"^{re.escape(kljuc)}(?![a-z0-9])", ocisceni):
                 return naziv, kategorija
 
     for redak in retci[:5]:

@@ -40,6 +40,12 @@ from rest_framework.decorators import action
 
 from .ocr import analiziraj_racun
 
+from .filters import GarancijaFilter
+from .models import Garancija
+from .serializers import GarancijaSerializer
+
+from datetime import timedelta
+
 
 
 class RegistracijaPogled(generics.CreateAPIView):
@@ -283,6 +289,34 @@ class PregledPogled(APIView):
 
         dnevni_prosjek = troskovi / protekli_dani if protekli_dani else Decimal("0")
 
+        # Tekuci tjedan, ponedjeljak -> danas. Tjedan moze prelaziti granicu mjeseca,
+        # pa se racuna nad svim transakcijama korisnika, ne samo nad odabranim mjesecom.
+        pocetak_tjedna = danas - timedelta(days=danas.weekday())
+        tjedan_potroseno = Transakcija.objects.filter(
+            korisnik=korisnik,
+            tip=Transakcija.TipTransakcije.TROSAK,
+            datum__gte=pocetak_tjedna,
+            datum__lte=danas,
+        ).aggregate(zbroj=Sum("iznos"))["zbroj"] or Decimal("0")
+
+        garancije = Garancija.objects.filter(korisnik=korisnik)
+        aktivne_garancije = garancije.filter(
+            Q(datum_isteka__isnull=True) | Q(datum_isteka__gte=danas)
+        )
+        prag_dana = korisnik.podsjetnik_garancije_dana or 30
+        najblizi_istek = (
+            aktivne_garancije.order_by("datum_isteka")
+            .values_list("datum_isteka", flat=True)
+            .first()
+        )
+        sazetak_garancija = {
+            "aktivne": aktivne_garancije.count(),
+            "istjece_uskoro": aktivne_garancije.filter(
+                datum_isteka__lte=danas + timedelta(days=prag_dana)
+            ).count(),
+            "najblizi_istek": najblizi_istek.isoformat() if najblizi_istek else None,
+        }
+
         try:
             koliko = int(zahtjev.query_params.get("zadnjih", ZADANO_ZADNJIH))
         except (TypeError, ValueError):
@@ -311,6 +345,9 @@ class PregledPogled(APIView):
                 "broj_transakcija": transakcije.count(),
                 "danas_potroseno": novac(danas_potroseno),
                 "dnevni_prosjek": novac(dnevni_prosjek),
+                "tjedan_potroseno": novac(tjedan_potroseno),
+                "tjedan_od": pocetak_tjedna.isoformat(),
+                "garancije": sazetak_garancija,
                 "po_kategorijama": po_kategorijama,
                 "zadnje_transakcije": zadnje,
             }
@@ -353,3 +390,19 @@ class RacunViewSet(viewsets.ModelViewSet):
         rezultat["kategorija"] = kategorija.id if kategorija else None
         rezultat["kategorija_naziv"] = kategorija.naziv if kategorija else None
         return Response(rezultat)
+
+class GarancijaViewSet(viewsets.ModelViewSet):
+    """Garancije prijavljenog korisnika."""
+
+    serializer_class = GarancijaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = GarancijaFilter
+    search_fields = ["naziv_proizvoda", "serijski_broj", "napomena", "racun__trgovina"]
+    ordering_fields = ["datum_isteka", "datum_kupnje", "naziv_proizvoda"]
+
+    def get_queryset(self):
+        return Garancija.objects.filter(korisnik=self.request.user).select_related("racun")
+
+    def perform_create(self, serializer):
+        serializer.save(korisnik=self.request.user)

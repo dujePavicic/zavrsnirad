@@ -46,5 +46,67 @@
     "oib": "74867487620",
     "kategorija": "Prijevoz",
     "zamka": "120.51 je iznos bez PDV-a"
+  },
+  "konzum-mlkit": {
+    "trgovina": "Konzum",
+    "iznos": "4.35",
+    "datum": "2026-08-14",
+    "oib": "62226620908",
+    "kategorija": "Namirnice",
+    "zamka": "stvarni ML Kit ispis: razbacani blokovi, 'URupno' krivo procitan, '2 1,25' spojen u 21,25, datum 14.08.2026 kao iznos 14,08"
+  },
+    "ina-mlkit": {
+    "trgovina": "INA",
+    "iznos": "26.50",
+    "datum": "2026-08-04",
+    "oib": "27759560625",
+    "kategorija": "Prijevoz",
+    "zamka": "ML Kit odvojio oznake od iznosa u dva bloka; naziv tvrtke tek u 35. retku; 27,90 je iznos prije popusta"
+  },
+  "tokic-mlkit": {
+    "trgovina": "Tokić",
+    "iznos": "4.60",
+    "datum": "2026-07-27",
+    "oib": "74867487620",
+    "kategorija": "Prijevoz",
+    "zamka": "datum zapisan kao '27.7 .2026' s razmakom prije tocke"
+  },
+    "spar-mlkit": {
+    "trgovina": "Spar",
+    "iznos": "10.54",
+    "datum": "2026-07-10",
+    "oib": "46108893754",
+    "kategorija": "Namirnice",
+    "zamka": "cijena po kilogramu i osnovica u zagradi; datum i u obliku 26/07/10"
+  },
+  "tim-mlkit": {
+    "trgovina": "TIM,obrt za trgovinu i usl.",
+    "iznos": "4.00",
+    "datum": "2026-07-09",
+    "oib": "81253210928",
+    "zamka": "mali obrt izvan popisa trgovina; datum zapisan kao '09.07 2026.' bez druge tocke"
+  },
+  "tedi-mlkit": {
+    "trgovina": "TEDi",
+    "iznos": "45.00",
+    "datum": "2026-07-10",
+    "oib": "05614216244",
+    "kategorija": "Kućanstvo",
+    "zamka": "3 artikla po 15,00; 50,00 je predana gotovina, 5,00 povrat; 'UKUPMO' krivo procitano"
+  },
+  "hac-mlkit": {
+    "trgovina": "Hrvatske autoceste",
+    "iznos": "7.40",
+    "datum": "2026-08-08",
+    "oib": "57500462912",
+    "kategorija": "Prijevoz",
+    "zamka": "'Ukuprno' krivo procitano; lazni datum 00/00/0000; placeno gotovinom"
+  },
+  "bipa-mlkit": {
+    "trgovina": "Bipa",
+    "iznos": "48.50",
+    "datum": "2026-07-09",
+    "kategorija": "Kućanstvo",
+    "zamka": "PROMASAJ: iza 'UKUPNO' OCR je stavio nepovezanu cijenu artikla (2,90); OIB odrezan na 7 znamenki pa se ne mjeri"
   }
 }
