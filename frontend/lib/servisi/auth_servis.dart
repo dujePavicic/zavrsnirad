@@ -192,6 +192,37 @@ class AuthServis {
     );
   }
 
+  Future<Korisnik> azurirajPostavkeObavijesti({
+    required bool obavijestiGarancije,
+    required int podsjetnikGarancijeDana,
+  }) async {
+    if (podsjetnikGarancijeDana < 1 ||
+        podsjetnikGarancijeDana > 365) {
+      throw AuthGreska(
+        'Broj dana za podsjetnik mora biti između 1 i 365.',
+      );
+    }
+
+    final odgovor = await _api.posalji(
+      'PATCH',
+      '/api/ja/',
+      tijelo: {
+        'obavijesti_garancije': obavijestiGarancije,
+        'podsjetnik_garancije_dana': podsjetnikGarancijeDana,
+      },
+    );
+
+    if (odgovor.statusCode == 200) {
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
+      return Korisnik.izJsona(tijelo);
+    }
+
+    throw AuthGreska(_izvuciGresku(odgovor));
+  }
+
   Future<void> odjavi() async {
     final refresh =
         await _tokenSpremiste.dohvatiRefresh();

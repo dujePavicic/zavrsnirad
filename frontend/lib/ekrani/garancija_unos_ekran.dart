@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../modeli/racun.dart';
+import '../modeli/garancija.dart';
 
 class GarancijaFormaPodaci {
   final String nazivProizvoda;
@@ -26,10 +27,12 @@ class GarancijaFormaPodaci {
 
 class GarancijaUnosEkran extends StatefulWidget {
   final Racun? racun;
+  final Garancija? garancija;
 
   const GarancijaUnosEkran({
     super.key,
     this.racun,
+    this.garancija,
   });
 
   @override
@@ -51,9 +54,28 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
   void initState() {
     super.initState();
 
-    _datumKupnje =
-        DateTime.tryParse(widget.racun?.datum ?? '') ??
-            DateTime.now();
+    final postojeca = widget.garancija;
+
+    if (postojeca != null) {
+      _nazivController.text = postojeca.nazivProizvoda;
+      _serijskiController.text = postojeca.serijskiBroj;
+      _napomenaController.text = postojeca.napomena;
+
+      _datumKupnje =
+          DateTime.tryParse(postojeca.datumKupnje) ?? DateTime.now();
+
+      _datumIsteka = postojeca.datumIsteka == null
+          ? null
+          : DateTime.tryParse(postojeca.datumIsteka!);
+
+      _dozivotna = postojeca.dozivotna;
+      _obavijesti =
+          postojeca.dozivotna ? false : postojeca.obavijesti;
+    } else {
+      _datumKupnje =
+          DateTime.tryParse(widget.racun?.datum ?? '') ??
+              DateTime.now();
+    }
   }
 
   @override
@@ -150,7 +172,8 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
         serijskiBroj: _serijskiController.text.trim(),
         napomena: _napomenaController.text.trim(),
         obavijesti: _obavijesti,
-        racunId: widget.racun?.id,
+        racunId:
+            widget.racun?.id ?? widget.garancija?.racunId,
       ),
     );
   }
@@ -162,9 +185,11 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Nova garancija',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        title: Text(
+          widget.garancija == null
+              ? 'Nova garancija'
+              : 'Uredi garanciju',
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       body: SafeArea(
@@ -172,7 +197,7 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
-            if (widget.racun != null) ...[
+            if (widget.racun != null || widget.garancija?.racunId != null) ...[
               Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
@@ -209,9 +234,14 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            widget.racun!.trgovina.isNotEmpty
-                                ? widget.racun!.trgovina
-                                : 'Račun',
+                            widget.racun != null
+                                ? (widget.racun!.trgovina.isNotEmpty
+                                    ? widget.racun!.trgovina
+                                    : 'Račun')
+                                : (widget.garancija!.racunTrgovina?.isNotEmpty ==
+                                        true
+                                    ? widget.garancija!.racunTrgovina!
+                                    : 'Povezani račun'),
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -402,17 +432,10 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
             FilledButton.icon(
               onPressed: _spremi,
               icon: const Icon(Icons.save_outlined),
-              label: const Text('Spremi garanciju'),
-            ),
-
-            const SizedBox(height: 10),
-
-            Text(
-              'Spremanje u bazu i zakazivanje obavijesti spojit će se '
-              'nakon što backend dobije API za garancije.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: shema.onSurfaceVariant,
+              label: Text(
+                widget.garancija == null
+                    ? 'Spremi garanciju'
+                    : 'Spremi promjene',
               ),
             ),
           ],

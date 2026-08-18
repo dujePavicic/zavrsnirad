@@ -1,23 +1,68 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../modeli/racun.dart';
+import '../modeli/garancija.dart';
 import '../pomocno/format.dart';
 import '../servisi/racun_servis.dart';
 import '../servisi/transakcija_servis.dart';
+import '../servisi/garancija_servis.dart';
+import '../servisi/auth_servis.dart';
+import '../servisi/obavijesti_servis.dart';
 import 'garancija_unos_ekran.dart';
+import 'garancija_detalj_ekran.dart';
 
 enum _OpcijaBrisanja {
   samoRacun,
   cijelaTransakcija,
 }
 
-class RacunDetaljEkran extends StatelessWidget {
+class RacunDetaljEkran extends StatefulWidget {
   final Racun racun;
 
   const RacunDetaljEkran({
     super.key,
     required this.racun,
   });
+
+  @override
+  State<RacunDetaljEkran> createState() => _RacunDetaljEkranState();
+}
+
+class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
+  final GarancijaServis _garancijaServis = GarancijaServis();
+  List<Garancija>? _garancije;
+  bool _ucitavaGarancije = true;
+
+  Racun get racun => widget.racun;
+
+  @override
+  void initState() {
+    super.initState();
+    _ucitajGarancije();
+  }
+
+  Future<void> _ucitajGarancije() async {
+    try {
+      final lista = await _garancijaServis.dohvatiGarancije(racun: racun.id);
+      if (!mounted) return;
+      setState(() {
+        _garancije = lista;
+        _ucitavaGarancije = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _ucitavaGarancije = false);
+    }
+  }
+
+  Future<void> _zakaziObavijestUpozadini(Garancija garancija) async {
+    try {
+      final korisnik = await AuthServis().dohvatiJa();
+      await ObavijestiServis().zakaziGaranciju(garancija, korisnik);
+    } catch (_) {}
+  }
 
   Future<void> _obrisi(BuildContext context) async {
     final odabir = await showDialog<_OpcijaBrisanja>(
@@ -104,14 +149,45 @@ class RacunDetaljEkran extends StatelessWidget {
 
     if (rezultat == null || !context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Garancija je pripremljena. '
-          'Spremanje ćemo povezati s backendom.',
+    try {
+      final garancija = await GarancijaServis().dodaj(
+        nazivProizvoda: rezultat.nazivProizvoda,
+        datumKupnje: rezultat.datumKupnje,
+        datumIsteka: rezultat.datumIsteka,
+        serijskiBroj: rezultat.serijskiBroj,
+        napomena: rezultat.napomena,
+        obavijesti:
+            rezultat.dozivotna ? false : rezultat.obavijesti,
+        racun: racun.id,
+      );
+
+      if (!context.mounted) return;
+
+      setState(() {
+        _garancije = [garancija, ...?_garancije];
+        _ucitavaGarancije = false;
+      });
+
+      unawaited(_zakaziObavijestUpozadini(garancija));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Garancija je spremljena i povezana s računom.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -180,12 +256,19 @@ class RacunDetaljEkran extends StatelessWidget {
 
             const SizedBox(height: 22),
 
-            OutlinedButton.icon(
-              onPressed: () => _dodajGaranciju(context),
-              icon: const Icon(Icons.verified_user_outlined),
-              label: const Text(
-                'Dodaj garanciju za ovaj račun',
-              ),
+            _GarancijeRacunaSekcija(
+              garancije: _garancije ?? const <Garancija>[],
+              ucitava: _ucitavaGarancije,
+              onDodaj: () => _dodajGaranciju(context),
+              onOtvori: (garancija) async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => GarancijaDetaljEkran(garancija: garancija),
+                  ),
+                );
+                await _ucitajGarancije();
+              },
             ),
 
             const SizedBox(height: 28),
@@ -307,6 +390,142 @@ class RacunDetaljEkran extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GarancijeRacunaSekcija extends StatelessWidget {
+  final List<Garancija> garancije;
+  final bool ucitava;
+  final VoidCallback onDodaj;
+  final ValueChanged<Garancija> onOtvori;
+
+  const _GarancijeRacunaSekcija({
+    required this.garancije,
+    required this.ucitava,
+    required this.onDodaj,
+    required this.onOtvori,
+  });
+
+  String _datum(String? vrijednost) {
+    if (vrijednost == null || vrijednost.isEmpty) return 'Doživotna';
+    final d = DateTime.tryParse(vrijednost);
+    if (d == null) return vrijednost;
+    return '${d.day}.${d.month}.${d.year}.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    if (ucitava) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: shema.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 12),
+            Text('Provjera povezanih garancija...'),
+          ],
+        ),
+      );
+    }
+
+    if (garancije.isEmpty) {
+      return OutlinedButton.icon(
+        onPressed: onDodaj,
+        icon: const Icon(Icons.verified_user_outlined),
+        label: const Text('Dodaj garanciju za ovaj račun'),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                garancije.length == 1 ? 'Povezana garancija' : 'Povezane garancije (${garancije.length})',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onDodaj,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Dodaj još'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: shema.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: shema.outlineVariant.withValues(alpha: 0.4)),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < garancije.length; i++) ...[
+                InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () => onOtvori(garancije[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: shema.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: Icon(
+                            garancije[i].dozivotna ? Icons.all_inclusive_rounded : Icons.verified_user_outlined,
+                            color: shema.primary,
+                            size: 21,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                garancije[i].nazivProizvoda,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                garancije[i].dozivotna ? 'Doživotna garancija' : 'Vrijedi do ${_datum(garancije[i].datumIsteka)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: garancije[i].istekla ? shema.error : shema.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.chevron_right_rounded, color: shema.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
+                ),
+                if (i != garancije.length - 1)
+                  Divider(height: 1, indent: 68, color: shema.outlineVariant.withValues(alpha: 0.45)),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

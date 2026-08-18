@@ -10,6 +10,8 @@ import '../providers/pregled_provider.dart';
 import '../servisi/pregled_servis.dart';
 import '../servisi/transakcija_servis.dart';
 import 'transakcija_detalj_ekran.dart';
+import 'budzet_ekran.dart';
+import 'racuni_ekran.dart';
 
 class PregledEkran extends StatefulWidget {
   const PregledEkran({super.key});
@@ -162,6 +164,70 @@ class _PregledEkranState extends State<PregledEkran> {
         naslov: naslov,
         future: future,
       ),
+    );
+  }
+
+  Future<void> _otvoriDetaljPovijesnogBudzeta(Pregled p) async {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+    final imaBudzet = p.budzet != null;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Budžet · ${imeMjeseca(p.mjesec)} ${p.godina}',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                if (!imaBudzet)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: shema.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(
+                      'Za ovaj mjesec nije bio postavljen budžet.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else ...[
+                  _PovijesniBudzetRedak(
+                    naslov: 'Postavljeni budžet',
+                    vrijednost: formatNovac(p.budzet!),
+                  ),
+                  const SizedBox(height: 10),
+                  _PovijesniBudzetRedak(
+                    naslov: 'Preostalo',
+                    vrijednost:
+                        formatNovac(p.preostaloBudzeta ?? '0'),
+                  ),
+                  const SizedBox(height: 10),
+                  _PovijesniBudzetRedak(
+                    naslov: 'Iskorišteno',
+                    vrijednost:
+                        '${(p.postotakBudzeta ?? 0).toStringAsFixed(0)}%',
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -330,15 +396,59 @@ class _PregledEkranState extends State<PregledEkran> {
                 },
               );
             },
+          )
+        else
+          _PovijesniPregledKartice(
+            ukupnoPotroseno: p.ukupnoTroskovi,
+            dnevniProsjek: p.dnevniProsjek,
+            onUkupnoTap: () => _otvoriTransakcije(
+              naslov:
+                  'Potrošnja · ${imeMjeseca(p.mjesec)} ${p.godina}',
+              godina: p.godina,
+              mjesec: p.mjesec,
+            ),
+            onProsjekTap: () => _otvoriTransakcije(
+              naslov:
+                  'Transakcije · ${imeMjeseca(p.mjesec)} ${p.godina}',
+              godina: p.godina,
+              mjesec: p.mjesec,
+            ),
           ),
 
-        if (p.budzet != null) ...[
-          const SizedBox(height: 16),
-          _BudzetKartica(pregled: p),
-        ],
+        const SizedBox(height: 16),
+
+        _BudzetKartica(
+          pregled: p,
+          onTap: () {
+            if (_jeTrenutniMjesec(p)) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BudzetEkran(),
+                ),
+              );
+              return;
+            }
+
+            _otvoriDetaljPovijesnogBudzeta(p);
+          },
+        ),
 
         const SizedBox(height: 16),
-        _GarancijeKartica(sazetak: p.garancije),
+
+        _GarancijeKartica(
+          sazetak: p.garancije,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const RacuniEkran(
+                  initialPrikaz: 'garancije',
+                ),
+              ),
+            );
+          },
+        ),
 
         const SizedBox(height: 28),
 
@@ -573,6 +683,7 @@ class _Donut extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
+          width: double.infinity,
           height: 210,
           child: Stack(
             alignment: Alignment.center,
@@ -595,15 +706,17 @@ class _Donut extends StatelessWidget {
                   ),
                 )
               else
-                SizedBox(
-                  width: 172,
-                  height: 172,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: shema.outlineVariant,
-                        width: 18,
+                Center(
+                  child: SizedBox(
+                    width: 172,
+                    height: 172,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: shema.outlineVariant,
+                          width: 18,
+                        ),
                       ),
                     ),
                   ),
@@ -747,6 +860,47 @@ class _BrziPregledKartice extends StatelessWidget {
   }
 }
 
+class _PovijesniPregledKartice extends StatelessWidget {
+  final String ukupnoPotroseno;
+  final String dnevniProsjek;
+  final VoidCallback onUkupnoTap;
+  final VoidCallback onProsjekTap;
+
+  const _PovijesniPregledKartice({
+    required this.ukupnoPotroseno,
+    required this.dnevniProsjek,
+    required this.onUkupnoTap,
+    required this.onProsjekTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _MalaStatistikaKartica(
+            naslov: 'Ukupno u mjesecu',
+            vrijednost: formatNovac(ukupnoPotroseno),
+            opis: 'potrošeno',
+            ikona: Icons.calendar_view_month_rounded,
+            onTap: onUkupnoTap,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MalaStatistikaKartica(
+            naslov: 'Dnevni prosjek',
+            vrijednost: formatNovac(dnevniProsjek),
+            opis: 'u tom mjesecu',
+            ikona: Icons.show_chart_rounded,
+            onTap: onProsjekTap,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MalaStatistikaKartica extends StatelessWidget {
   final String naslov;
   final String vrijednost;
@@ -849,9 +1003,11 @@ class _MalaStatistikaKartica extends StatelessWidget {
 
 class _BudzetKartica extends StatelessWidget {
   final Pregled pregled;
+  final VoidCallback onTap;
 
   const _BudzetKartica({
     required this.pregled,
+    required this.onTap,
   });
 
   @override
@@ -859,6 +1015,7 @@ class _BudzetKartica extends StatelessWidget {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
+    final imaBudzet = pregled.budzet != null;
     final postotak = pregled.postotakBudzeta ?? 0;
     final udio = (postotak / 100).clamp(0.0, 1.0);
 
@@ -871,73 +1028,132 @@ class _BudzetKartica extends StatelessWidget {
       progressBoja = shema.primary;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark
-            ? shema.primary.withValues(alpha: 0.075)
-            : shema.primary.withValues(alpha: 0.055),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: shema.primary.withValues(alpha: isDark ? 0.16 : 0.12),
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isDark
+              ? shema.primary.withValues(alpha: 0.075)
+              : shema.primary.withValues(alpha: 0.055),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: shema.primary.withValues(
+              alpha: isDark ? 0.16 : 0.12,
+            ),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: shema.primary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: shema.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: shema.primary,
+                    size: 21,
+                  ),
                 ),
-                child: Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: shema.primary,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Mjesečni budžet',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mjesečni budžet',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Preostalo ${formatNovac(pregled.preostaloBudzeta ?? "0")}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: shema.onSurfaceVariant,
+                      const SizedBox(height: 2),
+                      Text(
+                        imaBudzet
+                            ? 'Preostalo ${formatNovac(pregled.preostaloBudzeta ?? "0")}'
+                            : 'Budžet nije bio postavljen',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: shema.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Text(
-                '${postotak.toStringAsFixed(0)}%',
-                style: theme.textTheme.titleMedium?.copyWith(
+                if (imaBudzet)
+                  Text(
+                    '${postotak.toStringAsFixed(0)}%',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: progressBoja,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                else
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: shema.onSurfaceVariant,
+                  ),
+              ],
+            ),
+            if (imaBudzet) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: udio,
+                  minHeight: 8,
                   color: progressBoja,
-                  fontWeight: FontWeight.w800,
+                  backgroundColor:
+                      shema.outlineVariant.withValues(alpha: 0.4),
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PovijesniBudzetRedak extends StatelessWidget {
+  final String naslov;
+  final String vrijednost;
+
+  const _PovijesniBudzetRedak({
+    required this.naslov,
+    required this.vrijednost,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: shema.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              naslov,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: shema.onSurfaceVariant,
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: udio,
-              minHeight: 8,
-              color: progressBoja,
-              backgroundColor: shema.outlineVariant.withValues(alpha: 0.4),
+          Text(
+            vrijednost,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -948,9 +1164,11 @@ class _BudzetKartica extends StatelessWidget {
 
 class _GarancijeKartica extends StatelessWidget {
   final GarancijeSazetak sazetak;
+  final VoidCallback onTap;
 
   const _GarancijeKartica({
     required this.sazetak,
+    required this.onTap,
   });
 
   @override
@@ -959,62 +1177,67 @@ class _GarancijeKartica extends StatelessWidget {
     final shema = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark
-            ? shema.surfaceContainerHigh.withValues(alpha: 0.82)
-            : shema.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: shema.outlineVariant.withValues(
-            alpha: isDark ? 0.22 : 0.5,
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isDark
+              ? shema.surfaceContainerHigh.withValues(alpha: 0.82)
+              : shema.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: shema.outlineVariant.withValues(
+              alpha: isDark ? 0.22 : 0.5,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: shema.primary.withValues(alpha: 0.11),
-              borderRadius: BorderRadius.circular(13),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: shema.primary.withValues(alpha: 0.11),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                Icons.verified_user_outlined,
+                color: shema.primary,
+                size: 22,
+              ),
             ),
-            child: Icon(
-              Icons.verified_user_outlined,
-              color: shema.primary,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Garancije',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Garancije',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  sazetak.aktivne == 0
-                      ? 'Još nema spremljenih garancija'
-                      : '${sazetak.aktivne} aktivne · ${sazetak.istjeceUskoro} istječe uskoro',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: shema.onSurfaceVariant,
+                  const SizedBox(height: 3),
+                  Text(
+                    sazetak.aktivne == 0
+                        ? 'Još nema spremljenih garancija'
+                        : '${sazetak.aktivne} aktivne · '
+                            '${sazetak.istjeceUskoro} istječe uskoro',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: shema.onSurfaceVariant,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Icon(
-            Icons.notifications_none_rounded,
-            color: shema.onSurfaceVariant,
-          ),
-        ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: shema.onSurfaceVariant,
+            ),
+          ],
+        ),
       ),
     );
   }
