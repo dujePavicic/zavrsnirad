@@ -10,11 +10,14 @@ class Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      'lib/assets/nova_logo.png',
-      width: velicina,
-      height: velicina,
-      fit: BoxFit.contain,
-    );
+    return ClipRRect(
+  borderRadius: BorderRadius.circular(velicina * 0.22),
+  child: Image.asset(
+    'lib/assets/nova_logo.png',
+    width: velicina,
+    height: velicina,
+    fit: BoxFit.cover,
+  ),
+);
   }
 }

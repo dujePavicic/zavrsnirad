@@ -7,6 +7,9 @@ import '../modeli/pregled.dart';
 import '../modeli/transakcija.dart';
 import '../pomocno/format.dart';
 import '../providers/pregled_provider.dart';
+import '../servisi/pregled_servis.dart';
+import '../servisi/transakcija_servis.dart';
+import 'transakcija_detalj_ekran.dart';
 
 class PregledEkran extends StatefulWidget {
   const PregledEkran({super.key});
@@ -16,9 +19,186 @@ class PregledEkran extends StatefulWidget {
 }
 
 class _PregledEkranState extends State<PregledEkran> {
+  final PregledServis _pregledServis = PregledServis();
+  final TransakcijaServis _transakcijaServis = TransakcijaServis();
+
+  Pregled? _odabraniPregled;
+  bool _ucitavaMjesec = false;
+  Future<List<Transakcija>>? _tjedneTransakcije;
+
+  bool _jeTrenutniMjesec(Pregled p) {
+    final sada = DateTime.now();
+    return p.godina == sada.year && p.mjesec == sada.month;
+  }
+
+  Future<void> _odaberiMjesec(Pregled trenutni) async {
+    var godina = trenutni.godina;
+
+    final odabir = await showModalBottomSheet<DateTime>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => setModalState(() => godina--),
+                          icon: const Icon(Icons.chevron_left_rounded),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '$godina',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => setModalState(() => godina++),
+                          icon: const Icon(Icons.chevron_right_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 2.2,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (_, i) {
+                        final mjesec = i + 1;
+                        final odabran = godina == trenutni.godina &&
+                            mjesec == trenutni.mjesec;
+                        return odabran
+                            ? FilledButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, DateTime(godina, mjesec)),
+                                child: Text(imeMjeseca(mjesec)),
+                              )
+                            : OutlinedButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, DateTime(godina, mjesec)),
+                                child: Text(imeMjeseca(mjesec)),
+                              );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (odabir == null || !mounted) return;
+
+    setState(() => _ucitavaMjesec = true);
+    try {
+      final novi = await _pregledServis.dohvatiPregled(
+        godina: odabir.year,
+        mjesec: odabir.month,
+      );
+      if (mounted) setState(() => _odabraniPregled = novi);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _ucitavaMjesec = false);
+    }
+  }
+
+  Future<void> _otvoriTransakcije({
+    required String naslov,
+    String? datumOd,
+    String? datumDo,
+    int? godina,
+    int? mjesec,
+    int? kategorija,
+  }) async {
+    final future = _transakcijaServis.dohvatiTransakcije(
+      tip: 'TROSAK',
+      datumOd: datumOd,
+      datumDo: datumDo,
+      godina: godina,
+      mjesec: mjesec,
+      kategorija: kategorija,
+    ).then((transakcije) {
+      if (godina == null || mjesec == null) {
+        return transakcije;
+      }
+
+      return transakcije.where((transakcija) {
+        final datum = DateTime.tryParse(transakcija.datum);
+
+        return datum != null &&
+            datum.year == godina &&
+            datum.month == mjesec;
+      }).toList();
+    });
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => _DetaljiPotrosnjeSheet(
+        naslov: naslov,
+        future: future,
+      ),
+    );
+  }
+
+  String _iso(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  DateTime _pocetakTjedna(DateTime datum) {
+    final samoDatum = DateTime(
+      datum.year,
+      datum.month,
+      datum.day,
+    );
+
+    return samoDatum.subtract(
+      Duration(days: samoDatum.weekday - DateTime.monday),
+    );
+  }
+
+  Future<List<Transakcija>> _dohvatiTjedneTransakcije() {
+    final danas = DateTime.now();
+    final ponedjeljak = _pocetakTjedna(danas);
+
+    return _transakcijaServis.dohvatiTransakcije(
+      tip: 'TROSAK',
+      datumOd: _iso(ponedjeljak),
+      datumDo: _iso(danas),
+    );
+  }
+
+  void _osvjeziTjedan() {
+    _tjedneTransakcije = _dohvatiTjedneTransakcije();
+  }
+
   @override
   void initState() {
     super.initState();
+    _osvjeziTjedan();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final p = context.read<PregledPruzatelj>();
@@ -54,9 +234,29 @@ class _PregledEkranState extends State<PregledEkran> {
       return const _Ucitavanje();
     }
 
+    final prikaz = _odabraniPregled ?? pruzatelj.pregled!;
+
     return RefreshIndicator(
-      onRefresh: () => context.read<PregledPruzatelj>().osvjezi(),
-      child: _sadrzaj(context, pruzatelj.pregled!),
+      onRefresh: () async {
+        if (_odabraniPregled != null) {
+          final novi = await _pregledServis.dohvatiPregled(
+            godina: prikaz.godina,
+            mjesec: prikaz.mjesec,
+          );
+          if (mounted) {
+            setState(() {
+              _odabraniPregled = novi;
+              _osvjeziTjedan();
+            });
+          }
+        } else {
+          await context.read<PregledPruzatelj>().osvjezi();
+          if (mounted) {
+            setState(_osvjeziTjedan);
+          }
+        }
+      },
+      child: _sadrzaj(context, prikaz),
     );
   }
 
@@ -72,22 +272,73 @@ class _PregledEkranState extends State<PregledEkran> {
       children: [
         _Zaglavlje(
           mjesec: '${imeMjeseca(p.mjesec)} ${p.godina}',
+          onMjesecTap: () => _odaberiMjesec(p),
+          ucitava: _ucitavaMjesec,
         ),
         const SizedBox(height: 24),
 
-        _GlavnaKartica(pregled: p),
+        _GlavnaKartica(
+          pregled: p,
+          onTap: () => _otvoriTransakcije(
+            naslov: 'Potrošnja · ${imeMjeseca(p.mjesec)} ${p.godina}',
+            godina: p.godina,
+            mjesec: p.mjesec,
+          ),
+          onKategorijaTap: (k) => _otvoriTransakcije(
+            naslov: k.naziv,
+            godina: p.godina,
+            mjesec: p.mjesec,
+            kategorija: k.kategorija,
+          ),
+        ),
 
         const SizedBox(height: 16),
 
-        _BrziPregledKartice(
-          danasPotroseno: p.danasPotroseno,
-          dnevniProsjek: p.dnevniProsjek,
-        ),
+        if (_jeTrenutniMjesec(p))
+          FutureBuilder<List<Transakcija>>(
+            future: _tjedneTransakcije ??= _dohvatiTjedneTransakcije(),
+            builder: (context, snapshot) {
+              final transakcije =
+                  snapshot.data ?? const <Transakcija>[];
+
+              final tjedanPotroseno = transakcije.fold<double>(
+                0,
+                (zbroj, t) => zbroj + uBroj(t.iznos),
+              );
+
+              return _BrziPregledKartice(
+                danasPotroseno: p.danasPotroseno,
+                tjedanPotroseno: tjedanPotroseno.toStringAsFixed(2),
+                onDanasTap: () {
+                  final danas = _iso(DateTime.now());
+
+                  _otvoriTransakcije(
+                    naslov: 'Današnja potrošnja',
+                    datumOd: danas,
+                    datumDo: danas,
+                  );
+                },
+                onTjedanTap: () {
+                  final danas = DateTime.now();
+                  final ponedjeljak = _pocetakTjedna(danas);
+
+                  _otvoriTransakcije(
+                    naslov: 'Potrošnja ovaj tjedan',
+                    datumOd: _iso(ponedjeljak),
+                    datumDo: _iso(danas),
+                  );
+                },
+              );
+            },
+          ),
 
         if (p.budzet != null) ...[
           const SizedBox(height: 16),
           _BudzetKartica(pregled: p),
         ],
+
+        const SizedBox(height: 16),
+        _GarancijeKartica(sazetak: p.garancije),
 
         const SizedBox(height: 28),
 
@@ -118,6 +369,14 @@ class _PregledEkranState extends State<PregledEkran> {
         else
           _TransakcijeKartica(
             transakcije: p.zadnjeTransakcije,
+            onTap: (t) async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TransakcijaDetaljEkran(transakcija: t),
+                ),
+              );
+            },
           ),
       ],
     );
@@ -126,9 +385,13 @@ class _PregledEkranState extends State<PregledEkran> {
 
 class _Zaglavlje extends StatelessWidget {
   final String mjesec;
+  final VoidCallback onMjesecTap;
+  final bool ucitava;
 
   const _Zaglavlje({
     required this.mjesec,
+    required this.onMjesecTap,
+    required this.ucitava,
   });
 
   @override
@@ -160,7 +423,10 @@ class _Zaglavlje extends StatelessWidget {
             ],
           ),
         ),
-        Container(
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: ucitava ? null : onMjesecTap,
+          child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 9,
@@ -192,6 +458,7 @@ class _Zaglavlje extends StatelessWidget {
             ],
           ),
         ),
+        ),
       ],
     );
   }
@@ -199,9 +466,13 @@ class _Zaglavlje extends StatelessWidget {
 
 class _GlavnaKartica extends StatelessWidget {
   final Pregled pregled;
+  final VoidCallback onTap;
+  final ValueChanged<StavkaKategorije> onKategorijaTap;
 
   const _GlavnaKartica({
     required this.pregled,
+    required this.onTap,
+    required this.onKategorijaTap,
   });
 
   @override
@@ -210,7 +481,10 @@ class _GlavnaKartica extends StatelessWidget {
     final shema = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
       decoration: BoxDecoration(
         color: isDark
@@ -273,8 +547,9 @@ class _GlavnaKartica extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          _Donut(pregled: pregled),
+          _Donut(pregled: pregled, onKategorijaTap: onKategorijaTap),
         ],
+      ),
       ),
     );
   }
@@ -282,9 +557,11 @@ class _GlavnaKartica extends StatelessWidget {
 
 class _Donut extends StatelessWidget {
   final Pregled pregled;
+  final ValueChanged<StavkaKategorije>? onKategorijaTap;
 
   const _Donut({
     required this.pregled,
+    this.onKategorijaTap,
   });
 
   @override
@@ -384,7 +661,10 @@ class _Donut extends StatelessWidget {
             children: pregled.poKategorijama.map((k) {
               final boja = bojaIzHexa(k.boja);
 
-              return Container(
+              return InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: () => onKategorijaTap?.call(k),
+                child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 7,
@@ -416,6 +696,7 @@ class _Donut extends StatelessWidget {
                     ),
                   ],
                 ),
+                ),
               );
             }).toList(),
           ),
@@ -427,11 +708,15 @@ class _Donut extends StatelessWidget {
 
 class _BrziPregledKartice extends StatelessWidget {
   final String danasPotroseno;
-  final String dnevniProsjek;
+  final String tjedanPotroseno;
+  final VoidCallback onDanasTap;
+  final VoidCallback onTjedanTap;
 
   const _BrziPregledKartice({
     required this.danasPotroseno,
-    required this.dnevniProsjek,
+    required this.tjedanPotroseno,
+    required this.onDanasTap,
+    required this.onTjedanTap,
   });
 
   @override
@@ -444,15 +729,17 @@ class _BrziPregledKartice extends StatelessWidget {
             vrijednost: formatNovac(danasPotroseno),
             opis: 'potrošeno',
             ikona: Icons.today_rounded,
+            onTap: onDanasTap,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _MalaStatistikaKartica(
-            naslov: 'Dnevni prosjek',
-            vrijednost: formatNovac(dnevniProsjek),
-            opis: 'ovaj mjesec',
-            ikona: Icons.show_chart_rounded,
+            naslov: 'Ovaj tjedan',
+            vrijednost: formatNovac(tjedanPotroseno),
+            opis: 'od ponedjeljka',
+            ikona: Icons.date_range_rounded,
+            onTap: onTjedanTap,
           ),
         ),
       ],
@@ -465,12 +752,14 @@ class _MalaStatistikaKartica extends StatelessWidget {
   final String vrijednost;
   final String opis;
   final IconData ikona;
+  final VoidCallback onTap;
 
   const _MalaStatistikaKartica({
     required this.naslov,
     required this.vrijednost,
     required this.opis,
     required this.ikona,
+    required this.onTap,
   });
 
   @override
@@ -479,7 +768,10 @@ class _MalaStatistikaKartica extends StatelessWidget {
     final shema = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark
@@ -546,6 +838,7 @@ class _MalaStatistikaKartica extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -653,11 +946,87 @@ class _BudzetKartica extends StatelessWidget {
   }
 }
 
+class _GarancijeKartica extends StatelessWidget {
+  final GarancijeSazetak sazetak;
+
+  const _GarancijeKartica({
+    required this.sazetak,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark
+            ? shema.surfaceContainerHigh.withValues(alpha: 0.82)
+            : shema.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: shema.outlineVariant.withValues(
+            alpha: isDark ? 0.22 : 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: shema.primary.withValues(alpha: 0.11),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              Icons.verified_user_outlined,
+              color: shema.primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Garancije',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  sazetak.aktivne == 0
+                      ? 'Još nema spremljenih garancija'
+                      : '${sazetak.aktivne} aktivne · ${sazetak.istjeceUskoro} istječe uskoro',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: shema.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.notifications_none_rounded,
+            color: shema.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TransakcijeKartica extends StatelessWidget {
   final List<Transakcija> transakcije;
+  final ValueChanged<Transakcija> onTap;
 
   const _TransakcijeKartica({
     required this.transakcije,
+    required this.onTap,
   });
 
   @override
@@ -683,6 +1052,7 @@ class _TransakcijeKartica extends StatelessWidget {
           for (int i = 0; i < transakcije.length; i++) ...[
             _TransakcijaRedak(
               transakcija: transakcije[i],
+              onTap: () => onTap(transakcije[i]),
             ),
             if (i != transakcije.length - 1)
               Divider(
@@ -700,9 +1070,11 @@ class _TransakcijeKartica extends StatelessWidget {
 
 class _TransakcijaRedak extends StatelessWidget {
   final Transakcija transakcija;
+  final VoidCallback onTap;
 
   const _TransakcijaRedak({
     required this.transakcija,
+    required this.onTap,
   });
 
   @override
@@ -712,7 +1084,9 @@ class _TransakcijaRedak extends StatelessWidget {
     final boja = bojaIzHexa(transakcija.kategorijaBoja);
     final prihod = transakcija.tip == 'PRIHOD';
 
-    return Padding(
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: 14,
         vertical: 12,
@@ -769,6 +1143,7 @@ class _TransakcijaRedak extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -823,6 +1198,145 @@ class _PrazneTransakcije extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+class _DetaljiPotrosnjeSheet extends StatelessWidget {
+  final String naslov;
+  final Future<List<Transakcija>> future;
+
+  const _DetaljiPotrosnjeSheet({
+    required this.naslov,
+    required this.future,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return FractionallySizedBox(
+      heightFactor: 0.82,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              naslov,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: FutureBuilder<List<Transakcija>>(
+                future: future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        snapshot.error
+                            .toString()
+                            .replaceFirst('Exception: ', ''),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+
+                  final transakcije = snapshot.data ?? const <Transakcija>[];
+
+                  if (transakcije.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Nema troškova za odabrani period.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: shema.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
+
+                  final ukupno = transakcije.fold<double>(
+                    0,
+                    (zbroj, t) => zbroj + uBroj(t.iznos),
+                  );
+
+                  return ListView(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: shema.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Text('Ukupno potrošeno'),
+                            ),
+                            Text(
+                              formatNovac(ukupno.toStringAsFixed(2)),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final t in transakcije)
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: bojaIzHexa(t.kategorijaBoja)
+                                .withValues(alpha: 0.12),
+                            child: Icon(
+                              ikonaIzNaziva(t.kategorijaIkona),
+                              color: bojaIzHexa(t.kategorijaBoja),
+                            ),
+                          ),
+                          title: Text(
+                            t.opis.isNotEmpty ? t.opis : t.kategorijaNaziv,
+                          ),
+                          subtitle: Text(
+                            '${t.kategorijaNaziv} · ${t.datum}',
+                          ),
+                          trailing: Text(
+                            '-${formatNovac(t.iznos)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    TransakcijaDetaljEkran(transakcija: t),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

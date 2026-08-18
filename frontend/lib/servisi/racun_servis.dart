@@ -5,43 +5,31 @@ import 'package:http/http.dart' as http;
 
 import '../api_config.dart';
 import '../modeli/racun.dart';
-import 'token_spremiste.dart';
+import 'api_klijent.dart';
 
 /// Dohvaća, dodaje i briše račune iz arhive.
 class RacunServis {
-  final TokenSpremiste _tokenSpremiste = TokenSpremiste();
+  final ApiKlijent _api = ApiKlijent();
 
-Future<Map<String, dynamic>> analizirajRacun(
-  String prepoznatiTekst,
-) async {
-  final access = await _access();
+  Future<Map<String, dynamic>> analizirajRacun(
+    String prepoznatiTekst,
+  ) async {
+    final odgovor = await _api.posalji(
+      'POST',
+      '/api/racuni/analiziraj/',
+      tijelo: {
+        'prepoznati_tekst': prepoznatiTekst,
+      },
+    );
 
-  final odgovor = await http.post(
-    Uri.parse('${ApiConfig.racuni}analiziraj/'),
-    headers: {
-      'Authorization': 'Bearer $access',
-      'Content-Type': 'application/json',
-    },
-    body: jsonEncode({
-      'prepoznati_tekst': prepoznatiTekst,
-    }),
-  );
+    if (odgovor.statusCode >= 200 &&
+        odgovor.statusCode < 300) {
+      return jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+    }
 
-  if (odgovor.statusCode >= 200 &&
-      odgovor.statusCode < 300) {
-    return jsonDecode(
-      utf8.decode(odgovor.bodyBytes),
-    ) as Map<String, dynamic>;
-  }
-
-  throw Exception(_poruka(odgovor));
-}
-
-
-  Future<String> _access() async {
-    final a = await _tokenSpremiste.dohvatiAccess();
-    if (a == null) throw Exception('Nisi prijavljen.');
-    return a;
+    throw Exception(_poruka(odgovor));
   }
 
   Future<List<Racun>> dohvatiRacune({
@@ -51,39 +39,46 @@ Future<Map<String, dynamic>> analizirajRacun(
     String? datumOd,
     String? datumDo,
   }) async {
-    final access = await _access();
     final parametri = <String, String>{};
 
     if (search != null) parametri['search'] = search;
     if (trgovina != null) parametri['trgovina'] = trgovina;
-    if (kategorija != null) parametri['kategorija'] = '$kategorija';
+    if (kategorija != null) {
+      parametri['kategorija'] = '$kategorija';
+    }
     if (datumOd != null) parametri['datum_od'] = datumOd;
     if (datumDo != null) parametri['datum_do'] = datumDo;
 
-    final uri = Uri.parse(ApiConfig.racuni).replace(
-      queryParameters: parametri.isEmpty ? null : parametri,
-    );
-
-    final odgovor = await http.get(
-      uri,
-      headers: {'Authorization': 'Bearer $access'},
+    final odgovor = await _api.posalji(
+      'GET',
+      '/api/racuni/',
+      upit: parametri.isEmpty ? null : parametri,
     );
 
     if (odgovor.statusCode == 200) {
-      final tijelo =
-          jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
-      final rezultati = (tijelo['results'] as List? ?? []);
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
+      final rezultati =
+          (tijelo['results'] as List? ?? []);
 
       return rezultati
-          .map((e) => Racun.izJsona(e as Map<String, dynamic>))
+          .map(
+            (e) => Racun.izJsona(
+              e as Map<String, dynamic>,
+            ),
+          )
           .toList();
     }
 
     throw Exception(_poruka(odgovor));
   }
 
-  /// Dodaje račun postojećoj transakciji bez stvaranja nove transakcije.
-  /// Koristi bytes kako bi radio i na Flutter Webu.
+  /// Dodaje račun postojećoj transakciji.
+  ///
+  /// Multipart se mora posebno ponoviti nakon refresha jer već poslani
+  /// MultipartRequest nije moguće ponovno koristiti.
   Future<Racun> dodajPostojecojTransakciji({
     required int transakcijaId,
     required Uint8List slikaBytes,
@@ -91,33 +86,55 @@ Future<Map<String, dynamic>> analizirajRacun(
     String trgovina = '',
     String prepoznatiTekst = '',
   }) async {
-    final access = await _access();
+    Future<http.Response> posaljiMultipart() async {
+      final access = await _api.trenutniAccess();
 
-    final zahtjev = http.MultipartRequest(
-      'POST',
-      Uri.parse(ApiConfig.racuni),
-    );
+      final zahtjev = http.MultipartRequest(
+        'POST',
+        Uri.parse(ApiConfig.racuni),
+      );
 
-    zahtjev.headers['Authorization'] = 'Bearer $access';
+      zahtjev.headers['Authorization'] =
+          'Bearer $access';
 
-    zahtjev.fields['transakcija_id'] = '$transakcijaId';
-    zahtjev.fields['trgovina'] = trgovina;
-    zahtjev.fields['prepoznati_tekst'] = prepoznatiTekst;
+      zahtjev.fields['transakcija_id'] =
+          '$transakcijaId';
+      zahtjev.fields['trgovina'] = trgovina;
+      zahtjev.fields['prepoznati_tekst'] =
+          prepoznatiTekst;
 
-    zahtjev.files.add(
-      http.MultipartFile.fromBytes(
-        'slika',
-        slikaBytes,
-        filename: nazivSlike,
-      ),
-    );
+      zahtjev.files.add(
+        http.MultipartFile.fromBytes(
+          'slika',
+          slikaBytes,
+          filename: nazivSlike,
+        ),
+      );
 
-    final poslano = await zahtjev.send();
-    final odgovor = await http.Response.fromStream(poslano);
+      final poslano = await zahtjev.send();
+
+      return http.Response.fromStream(poslano);
+    }
+
+    var odgovor = await posaljiMultipart();
+
+    if (odgovor.statusCode == 401) {
+      final uspjelo = await _api.osvjeziToken();
+
+      if (!uspjelo) {
+        await _api.obrisiTokene();
+        throw SesijaIstekla();
+      }
+
+      // Novi MultipartRequest s novim access tokenom.
+      odgovor = await posaljiMultipart();
+    }
 
     if (odgovor.statusCode == 201) {
-      final tijelo =
-          jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
       return Racun.izJsona(tijelo);
     }
 
@@ -125,11 +142,9 @@ Future<Map<String, dynamic>> analizirajRacun(
   }
 
   Future<void> obrisi(int id) async {
-    final access = await _access();
-
-    final odgovor = await http.delete(
-      Uri.parse(ApiConfig.racunId(id)),
-      headers: {'Authorization': 'Bearer $access'},
+    final odgovor = await _api.posalji(
+      'DELETE',
+      '/api/racuni/$id/',
     );
 
     if (odgovor.statusCode == 204) return;
@@ -149,13 +164,21 @@ Future<Map<String, dynamic>> analizirajRacun(
         }
 
         for (final vrijednost in tijelo.values) {
-          if (vrijednost is List && vrijednost.isNotEmpty) {
+          if (vrijednost is List &&
+              vrijednost.isNotEmpty) {
             return vrijednost.first.toString();
           }
-          if (vrijednost != null) return vrijednost.toString();
+
+          if (vrijednost != null) {
+            return vrijednost.toString();
+          }
         }
       }
     } catch (_) {}
+
+    if (odgovor.statusCode == 429) {
+      return 'Previše zahtjeva. Pokušaj ponovno za koju minutu.';
+    }
 
     return 'Greška (${odgovor.statusCode}).';
   }

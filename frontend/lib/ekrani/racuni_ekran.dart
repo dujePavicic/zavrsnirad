@@ -12,6 +12,7 @@ import 'kategorije_ekran.dart';
 import 'racun_detalj_ekran.dart';
 import 'transakcija_unos_ekran.dart';
 import 'skeniranje_racuna_ekran.dart';
+import 'garancija_unos_ekran.dart';
 
 class RacuniEkran extends StatefulWidget {
   const RacuniEkran({super.key});
@@ -28,6 +29,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
   late Future<List<Racun>> _buduci;
   List<Kategorija> _vidljive = [];
   int? _odabranaKategorija;
+  String _odabraniPrikaz = 'racuni';
   Timer? _debounce;
 
   @override
@@ -188,17 +190,42 @@ class _RacuniEkranState extends State<RacuniEkran> {
     );
   }
 
+  Future<void> _otvoriDodavanjeGarancije() async {
+    final rezultat = await Navigator.push<GarancijaFormaPodaci>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const GarancijaUnosEkran(),
+      ),
+    );
+
+    if (rezultat == null || !mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Forma garancije je spremna. '
+          'Spremanje ćemo povezati s backendom.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
+    final prikazRacuna = _odabraniPrikaz == 'racuni';
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab_racuni',
-        onPressed: _otvoriDodavanje,
+        heroTag: prikazRacuna ? 'fab_racuni' : 'fab_garancije',
+        onPressed: prikazRacuna
+            ? _otvoriDodavanje
+            : _otvoriDodavanjeGarancije,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Dodaj'),
+        label: Text(
+          prikazRacuna ? 'Dodaj' : 'Dodaj garanciju',
+        ),
       ),
       body: SafeArea(
         bottom: false,
@@ -208,50 +235,95 @@ class _RacuniEkranState extends State<RacuniEkran> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: _Zaglavlje(),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _Pretraga(
-                controller: _pretragaController,
-                onChanged: _naPromjenuPretrage,
-                onSubmitted: (_) => _osvjeziListu(),
-                onClear: () {
-                  _pretragaController.clear();
-                  _osvjeziListu();
-                },
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment<String>(
+                      value: 'racuni',
+                      icon: Icon(Icons.receipt_long_outlined),
+                      label: Text('Računi'),
+                    ),
+                    ButtonSegment<String>(
+                      value: 'garancije',
+                      icon: Icon(Icons.verified_user_outlined),
+                      label: Text('Garancije'),
+                    ),
+                  ],
+                  selected: {_odabraniPrikaz},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (odabrano) {
+                    setState(() {
+                      _odabraniPrikaz = odabrano.first;
+                    });
+                  },
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.comfortable,
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 14),
-            _pilule(),
-            const SizedBox(height: 6),
-            Expanded(
-              child: FutureBuilder<List<Racun>>(
-                future: _buduci,
-                builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const _Ucitavanje();
-                  }
 
-                  if (snap.hasError) {
-                    return _Greska(
-                      poruka: snap.error.toString(),
-                      naPokusaj: _povuciZaOsvjezenje,
+            const SizedBox(height: 18),
+
+            if (prikazRacuna) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _Pretraga(
+                  controller: _pretragaController,
+                  onChanged: _naPromjenuPretrage,
+                  onSubmitted: (_) => _osvjeziListu(),
+                  onClear: () {
+                    _pretragaController.clear();
+                    _osvjeziListu();
+                  },
+                ),
+              ),
+              const SizedBox(height: 14),
+              _pilule(),
+              const SizedBox(height: 6),
+              Expanded(
+                child: FutureBuilder<List<Racun>>(
+                  future: _buduci,
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const _Ucitavanje();
+                    }
+
+                    if (snap.hasError) {
+                      return _Greska(
+                        poruka: snap.error.toString(),
+                        naPokusaj: _povuciZaOsvjezenje,
+                      );
+                    }
+
+                    final racuni = snap.data!;
+
+                    if (racuni.isEmpty) {
+                      return _Prazno(naOsvjezi: _povuciZaOsvjezenje);
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: _povuciZaOsvjezenje,
+                      child: _lista(context, racuni),
                     );
-                  }
-
-                  final racuni = snap.data!;
-
-                  if (racuni.isEmpty) {
-                    return _Prazno(naOsvjezi: _povuciZaOsvjezenje);
-                  }
-
-                  return RefreshIndicator(
-                    onRefresh: _povuciZaOsvjezenje,
-                    child: _lista(context, racuni),
-                  );
-                },
+                  },
+                ),
               ),
-            ),
+            ] else ...[
+              Expanded(
+                child: _PrazneGarancije(onDodaj: _otvoriDodavanjeGarancije),
+              ),
+            ],
           ],
         ),
       ),
@@ -388,7 +460,7 @@ class _Zaglavlje extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Pronađi, filtriraj i pregledaj svoje račune',
+                'Čuvaj račune i prati garancije proizvoda',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: shema.onSurfaceVariant,
                 ),
@@ -772,6 +844,60 @@ class _Prazno extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PrazneGarancije extends StatelessWidget {
+  final VoidCallback? onDodaj;
+
+  const _PrazneGarancije({
+    this.onDodaj,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(28, 56, 28, 120),
+      children: [
+        Container(
+          width: 68,
+          height: 68,
+          margin: const EdgeInsets.symmetric(horizontal: 108),
+          decoration: BoxDecoration(
+            color: shema.primary.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.verified_user_outlined,
+            size: 32,
+            color: shema.primary,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Još nema spremljenih garancija',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          'Garancije proizvoda koje spremiš prikazat će se ovdje.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: shema.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+      ],
     );
   }
 }
