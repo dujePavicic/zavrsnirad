@@ -6,6 +6,8 @@ class Korisnik {
   final String prezime;
   final String? profilnaSlika;
   final DateTime? datumRegistracije;
+  final bool obavijestiGarancije;
+  final int podsjetnikGarancijeDana;
 
   Korisnik({
     required this.id,
@@ -15,6 +17,8 @@ class Korisnik {
     required this.prezime,
     this.profilnaSlika,
     this.datumRegistracije,
+    this.obavijestiGarancije = true,
+    this.podsjetnikGarancijeDana = 30,
   });
 
   factory Korisnik.izJsona(Map<String, dynamic> json) {
@@ -33,6 +37,10 @@ class Korisnik {
                   json['datum_registracije'].toString(),
                 )
               : null,
+      obavijestiGarancije:
+          json['obavijesti_garancije'] as bool? ?? true,
+      podsjetnikGarancijeDana:
+          json['podsjetnik_garancije_dana'] as int? ?? 30,
     );
   }
 
@@ -45,5 +53,7 @@ class Korisnik {
         'profilna_slika': profilnaSlika,
         'datum_registracije':
             datumRegistracije?.toIso8601String(),
+        'obavijesti_garancije': obavijestiGarancije,
+        'podsjetnik_garancije_dana': podsjetnikGarancijeDana,
       };
 }

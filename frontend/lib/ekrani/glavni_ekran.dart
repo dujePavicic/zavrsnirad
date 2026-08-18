@@ -9,6 +9,7 @@ import 'racuni_ekran.dart';
 import 'budzet_ekran.dart';
 import 'transakcije_ekran.dart';
 import 'profil_uredi_ekran.dart';
+import 'postavke_obavijesti_ekran.dart';
 
 class GlavniEkran
     extends StatefulWidget {
@@ -354,6 +355,21 @@ class _ProfilTab
             const SizedBox(
               height: 12,
             ),
+
+            _ProfilStavka(
+              ikona: Icons.notifications_none_rounded,
+              naslov: 'Obavijesti',
+              opis: 'Podsjetnici za istjecanje garancija',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const PostavkeObavijestiEkran(),
+                  ),
+                );
+              },
+            ),
+
 
             
 

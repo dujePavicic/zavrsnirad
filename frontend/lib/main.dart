@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'ekrani/prijava.dart';
 import 'themes/default_tema.dart';
-import '../ekrani/glavni_ekran.dart';
+import 'ekrani/glavni_ekran.dart';
 import 'providers/pregled_provider.dart';
 
 void main() {
@@ -12,8 +12,11 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-            create: (_) => AuthPruzatelj()..provjeriPrijavu()),
-        ChangeNotifierProvider(create: (_) => PregledPruzatelj()),
+          create: (_) => AuthPruzatelj()..provjeriPrijavu(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PregledPruzatelj(),
+        ),
       ],
       child: const ZavrsniApp(),
     ),
@@ -37,7 +40,6 @@ class ZavrsniApp extends StatelessWidget {
 }
 
 /// Odlučuje koji ekran prikazati ovisno o statusu prijave.
-/// context.watch znači: kad se status promijeni, Vratar se ponovno iscrta.
 class PUTOKAZ extends StatelessWidget {
   const PUTOKAZ({super.key});
 
@@ -48,14 +50,17 @@ class PUTOKAZ extends StatelessWidget {
     switch (auth.status) {
       case AuthStatus.pocetno:
         return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
         );
+
       case AuthStatus.prijavljen:
         return const GlavniEkran();
+
       case AuthStatus.ucitavanje:
       case AuthStatus.odjavljen:
         return const PrijavaEkran();
     }
   }
 }
-

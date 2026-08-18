@@ -57,7 +57,6 @@ class BudzetEkran extends StatelessWidget {
           .map((k) => k.kategorija)
           .toSet();
 
-      // U izboru ostavljamo samo kategorije koje još nemaju budžet.
       final kategorije = sveKategorije
           .where(
             (k) => !zauzeteKategorije.contains(k.id),
@@ -66,7 +65,6 @@ class BudzetEkran extends StatelessWidget {
 
       if (!context.mounted) return;
 
-      // Ako sve kategorije već imaju budžet, ne otvaramo prazan dijalog.
       if (kategorije.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

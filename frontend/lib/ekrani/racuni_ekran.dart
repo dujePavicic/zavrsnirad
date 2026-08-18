@@ -4,18 +4,28 @@ import 'package:flutter/material.dart';
 
 import '../modeli/kategorija.dart';
 import '../modeli/racun.dart';
+import '../modeli/garancija.dart';
 import '../pomocno/format.dart';
 import '../pomocno/kategorije_redoslijed.dart';
 import '../servisi/kategorija_servis.dart';
 import '../servisi/racun_servis.dart';
+import '../servisi/garancija_servis.dart';
+import '../servisi/auth_servis.dart';
+import '../servisi/obavijesti_servis.dart';
 import 'kategorije_ekran.dart';
 import 'racun_detalj_ekran.dart';
 import 'transakcija_unos_ekran.dart';
 import 'skeniranje_racuna_ekran.dart';
 import 'garancija_unos_ekran.dart';
+import 'garancija_detalj_ekran.dart';
 
 class RacuniEkran extends StatefulWidget {
-  const RacuniEkran({super.key});
+  final String initialPrikaz;
+
+  const RacuniEkran({
+    super.key,
+    this.initialPrikaz = 'racuni',
+  });
 
   @override
   State<RacuniEkran> createState() => _RacuniEkranState();
@@ -25,17 +35,25 @@ class _RacuniEkranState extends State<RacuniEkran> {
   final _servis = RacunServis();
   final _kategorijaServis = KategorijaServis();
   final _pretragaController = TextEditingController();
+  final _garancijaServis = GarancijaServis();
+  final _authServis = AuthServis();
+  final _obavijestiServis = ObavijestiServis();
 
   late Future<List<Racun>> _buduci;
+  late Future<List<Garancija>> _buduceGarancije;
   List<Kategorija> _vidljive = [];
   int? _odabranaKategorija;
-  String _odabraniPrikaz = 'racuni';
+  late String _odabraniPrikaz;
   Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
+    _odabraniPrikaz = widget.initialPrikaz == 'garancije'
+        ? 'garancije'
+        : 'racuni';
     _buduci = _servis.dohvatiRacune();
+    _buduceGarancije = _garancijaServis.dohvatiGarancije();
     _ucitajKategorije();
   }
 
@@ -190,6 +208,13 @@ class _RacuniEkranState extends State<RacuniEkran> {
     );
   }
 
+  Future<void> _zakaziObavijestUpozadini(Garancija garancija) async {
+    try {
+      final korisnik = await _authServis.dohvatiJa();
+      await _obavijestiServis.zakaziGaranciju(garancija, korisnik);
+    } catch (_) {}
+  }
+
   Future<void> _otvoriDodavanjeGarancije() async {
     final rezultat = await Navigator.push<GarancijaFormaPodaci>(
       context,
@@ -200,14 +225,76 @@ class _RacuniEkranState extends State<RacuniEkran> {
 
     if (rezultat == null || !mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Forma garancije je spremna. '
-          'Spremanje ćemo povezati s backendom.',
+    try {
+      final garancija = await _garancijaServis.dodaj(
+        nazivProizvoda: rezultat.nazivProizvoda,
+        datumKupnje: rezultat.datumKupnje,
+        datumIsteka: rezultat.datumIsteka,
+        serijskiBroj: rezultat.serijskiBroj,
+        napomena: rezultat.napomena,
+        obavijesti:
+            rezultat.dozivotna ? false : rezultat.obavijesti,
+        racun: rezultat.racunId,
+      );
+
+      if (!mounted) return;
+
+      final trenutne = await _buduceGarancije.catchError(
+        (_) => <Garancija>[],
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _buduceGarancije = Future.value([garancija, ...trenutne]);
+      });
+
+      unawaited(_zakaziObavijestUpozadini(garancija));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Garancija je spremljena.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _osvjeziGarancije() async {
+    final novi = _garancijaServis.dohvatiGarancije();
+
+    setState(() => _buduceGarancije = novi);
+
+    await novi;
+  }
+
+  Future<void> _otvoriGaranciju(Garancija garancija) async {
+    final promjena = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GarancijaDetaljEkran(
+          garancija: garancija,
         ),
       ),
     );
+
+    if (promjena == true && mounted) {
+      await _osvjeziGarancije();
+    } else if (mounted) {
+      // Uređivanje detalja može promijeniti podatke i bez pop rezultata.
+      setState(() {
+        _buduceGarancije =
+            _garancijaServis.dohvatiGarancije();
+      });
+    }
   }
 
   @override
@@ -321,7 +408,39 @@ class _RacuniEkranState extends State<RacuniEkran> {
               ),
             ] else ...[
               Expanded(
-                child: _PrazneGarancije(onDodaj: _otvoriDodavanjeGarancije),
+                child: FutureBuilder<List<Garancija>>(
+                  future: _buduceGarancije,
+                  builder: (context, snap) {
+                    if (snap.connectionState ==
+                        ConnectionState.waiting) {
+                      return const _Ucitavanje();
+                    }
+
+                    if (snap.hasError) {
+                      return _Greska(
+                        poruka: snap.error.toString(),
+                        naPokusaj: _osvjeziGarancije,
+                      );
+                    }
+
+                    final garancije =
+                        snap.data ?? const <Garancija>[];
+
+                    if (garancije.isEmpty) {
+                      return _PrazneGarancije(
+                        onDodaj: _otvoriDodavanjeGarancije,
+                      );
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: _osvjeziGarancije,
+                      child: _GarancijeLista(
+                        garancije: garancije,
+                        onTap: _otvoriGaranciju,
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ],
@@ -844,6 +963,146 @@ class _Prazno extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GarancijeLista extends StatelessWidget {
+  final List<Garancija> garancije;
+  final ValueChanged<Garancija> onTap;
+
+  const _GarancijeLista({
+    required this.garancije,
+    required this.onTap,
+  });
+
+  String _datumPrikaz(String datum) {
+    final d = DateTime.tryParse(datum);
+
+    if (d == null) return datum;
+
+    return '${d.day}.${d.month}.${d.year}.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shema = theme.colorScheme;
+
+    final sortirane = [...garancije]
+      ..sort((a, b) {
+        if (a.dozivotna && !b.dozivotna) return 1;
+        if (!a.dozivotna && b.dozivotna) return -1;
+
+        final ad = a.datumIsteka == null
+            ? DateTime(9999)
+            : DateTime.tryParse(a.datumIsteka!) ?? DateTime(9999);
+        final bd = b.datumIsteka == null
+            ? DateTime(9999)
+            : DateTime.tryParse(b.datumIsteka!) ?? DateTime(9999);
+
+        return ad.compareTo(bd);
+      });
+
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+      itemCount: sortirane.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final g = sortirane[index];
+
+        final status = g.dozivotna
+            ? 'Doživotna'
+            : g.istekla
+                ? 'Istekla'
+                : g.danaDoIsteka != null
+                    ? '${g.danaDoIsteka} dana do isteka'
+                    : 'Aktivna';
+
+        final statusBoja = g.istekla
+            ? shema.error
+            : shema.primary;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => onTap(g),
+            child: Ink(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: shema.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: shema.outlineVariant
+                      .withValues(alpha: 0.45),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: statusBoja.withValues(alpha: 0.11),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Icon(
+                      g.dozivotna
+                          ? Icons.all_inclusive_rounded
+                          : Icons.verified_user_outlined,
+                      color: statusBoja,
+                    ),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          g.nazivProizvoda,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          g.dozivotna
+                              ? 'Garancija: Doživotna'
+                              : g.datumIsteka == null
+                                  ? 'Bez datuma isteka'
+                                  : 'Vrijedi do ${_datumPrikaz(g.datumIsteka!)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: shema.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          status,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: statusBoja,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: shema.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
