@@ -4,6 +4,7 @@ import '../modeli/racun.dart';
 import '../pomocno/format.dart';
 import '../servisi/racun_servis.dart';
 import '../servisi/transakcija_servis.dart';
+import 'garancija_unos_ekran.dart';
 
 enum _OpcijaBrisanja {
   samoRacun,
@@ -91,6 +92,28 @@ class RacunDetaljEkran extends StatelessWidget {
     }
   }
 
+  Future<void> _dodajGaranciju(BuildContext context) async {
+    final rezultat = await Navigator.push<GarancijaFormaPodaci>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GarancijaUnosEkran(
+          racun: racun,
+        ),
+      ),
+    );
+
+    if (rezultat == null || !context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Garancija je pripremljena. '
+          'Spremanje ćemo povezati s backendom.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -154,6 +177,16 @@ class RacunDetaljEkran extends StatelessWidget {
                 vrijednost: racun.trgovina,
               ),
             ],
+
+            const SizedBox(height: 22),
+
+            OutlinedButton.icon(
+              onPressed: () => _dodajGaranciju(context),
+              icon: const Icon(Icons.verified_user_outlined),
+              label: const Text(
+                'Dodaj garanciju za ovaj račun',
+              ),
+            ),
 
             const SizedBox(height: 28),
           ],

@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../modeli/kategorija.dart';
+import '../servisi/kategorija_servis.dart';
 import '../servisi/racun_servis.dart';
 import '../servisi/transakcija_servis.dart';
 
@@ -23,6 +25,7 @@ class _SkeniranjeRacunaEkranState
 
   final RacunServis _racunServis = RacunServis();
   final TransakcijaServis _transakcijaServis = TransakcijaServis();
+  final KategorijaServis _kategorijaServis = KategorijaServis();
 
   final TextRecognizer _textRecognizer = TextRecognizer(
     script: TextRecognitionScript.latin,
@@ -44,9 +47,38 @@ class _SkeniranjeRacunaEkranState
 
   int? _kategorijaId;
   String _kategorijaNaziv = '';
+  List<Kategorija> _kategorije = [];
 
   bool _obrada = false;
   bool _spremanje = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ucitajKategorije();
+  }
+
+  Future<void> _ucitajKategorije() async {
+    try {
+      final kategorije = await _kategorijaServis.dohvatiKategorije(
+        tip: 'TROSAK',
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _kategorije = kategorije;
+
+        if (_kategorijaId != null &&
+            !_kategorije.any((k) => k.id == _kategorijaId)) {
+          _kategorijaId = null;
+          _kategorijaNaziv = '';
+        }
+      });
+    } catch (e) {
+      debugPrint('Greška pri dohvaćanju kategorija: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -215,6 +247,12 @@ class _SkeniranjeRacunaEkranState
         _kategorijaNaziv =
             analiza['kategorija_naziv']?.toString() ??
                 '';
+
+        if (_kategorijaId != null &&
+            !_kategorije.any((k) => k.id == _kategorijaId)) {
+          _kategorijaId = null;
+          _kategorijaNaziv = '';
+        }
       });
     } catch (e) {
       debugPrint(
@@ -349,8 +387,7 @@ class _SkeniranjeRacunaEkranState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Kategorija nije prepoznata. '
-            'Račun se trenutno ne može spremiti.',
+            'Odaberi kategoriju prije spremanja računa.',
           ),
         ),
       );
@@ -464,7 +501,7 @@ class _SkeniranjeRacunaEkranState
           ),
           children: [
             Text(
-              'OCR test',
+              'Skeniranje računa',
               style: theme
                   .textTheme
                   .headlineSmall
@@ -478,9 +515,7 @@ class _SkeniranjeRacunaEkranState
             ),
 
             Text(
-              'Fotografiraj račun ili odaberi postojeću sliku. '
-              'ML Kit će prepoznati tekst, a backend će pokušati '
-              'izvući podatke s računa.',
+              'Fotografiraj račun ili odaberi postojeću sliku iz galerije. ',
               style: theme
                   .textTheme
                   .bodyMedium
@@ -748,17 +783,42 @@ class _SkeniranjeRacunaEkranState
 
                     const SizedBox(height: 14),
 
-                    InputDecorator(
+                    DropdownButtonFormField<int>(
+                      value: _kategorijaId != null &&
+                              _kategorije.any(
+                                (k) => k.id == _kategorijaId,
+                              )
+                          ? _kategorijaId
+                          : null,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Kategorija',
+                        hintText: 'Odaberi kategoriju',
                         border: OutlineInputBorder(),
                       ),
-                      child: Text(
-                        _kategorijaNaziv.isNotEmpty
-                            ? _kategorijaNaziv
-                            : 'Nije prepoznato',
-                        style: theme.textTheme.bodyLarge,
-                      ),
+                      items: _kategorije.map((kategorija) {
+                        return DropdownMenuItem<int>(
+                          value: kategorija.id,
+                          child: Text(
+                            kategorija.naziv,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: _spremanje
+                          ? null
+                          : (vrijednost) {
+                              if (vrijednost == null) return;
+
+                              final odabrana = _kategorije.firstWhere(
+                                (k) => k.id == vrijednost,
+                              );
+
+                              setState(() {
+                                _kategorijaId = odabrana.id;
+                                _kategorijaNaziv = odabrana.naziv;
+                              });
+                            },
                     ),
                   ],
                 ),

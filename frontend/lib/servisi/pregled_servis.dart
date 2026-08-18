@@ -1,39 +1,47 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 
-import '../api_config.dart';
 import '../modeli/pregled.dart';
-import 'token_spremiste.dart';
+import 'api_klijent.dart';
 
-/// Dohvaća podatke za dashboard s /api/pregled/.
 class PregledServis {
-  final TokenSpremiste _tokenSpremiste = TokenSpremiste();
+  final ApiKlijent _api = ApiKlijent();
 
-  Future<Pregled> dohvatiPregled({int? godina, int? mjesec}) async {
-    final access = await _tokenSpremiste.dohvatiAccess();
-    if (access == null) {
-      throw Exception('Nisi prijavljen.');
+  Future<Pregled> dohvatiPregled({
+    int? godina,
+    int? mjesec,
+  }) async {
+    final parametri = <String, String>{};
+
+    if (godina != null) {
+      parametri['godina'] = '$godina';
     }
 
-    // Bez parametara backend uzima tekući mjesec; s njima traži zadani.
-    final parametri = <String, String>{};
-    if (godina != null) parametri['godina'] = '$godina';
-    if (mjesec != null) parametri['mjesec'] = '$mjesec';
+    if (mjesec != null) {
+      parametri['mjesec'] = '$mjesec';
+    }
 
-    final uri = Uri.parse(ApiConfig.pregled)
-        .replace(queryParameters: parametri.isEmpty ? null : parametri);
-
-    final odgovor = await http.get(
-      uri,
-      headers: {'Authorization': 'Bearer $access'},
+    final odgovor = await _api.posalji(
+      'GET',
+      '/api/pregled/',
+      upit: parametri.isEmpty ? null : parametri,
     );
 
     if (odgovor.statusCode == 200) {
-      final tijelo =
-          jsonDecode(utf8.decode(odgovor.bodyBytes)) as Map<String, dynamic>;
+      final tijelo = jsonDecode(
+        utf8.decode(odgovor.bodyBytes),
+      ) as Map<String, dynamic>;
+
       return Pregled.izJsona(tijelo);
-    } else {
-      throw Exception('Ne mogu dohvatiti pregled (${odgovor.statusCode}).');
     }
+
+    if (odgovor.statusCode == 429) {
+      throw Exception(
+        'Previše zahtjeva. Pokušaj ponovno za koju minutu.',
+      );
+    }
+
+    throw Exception(
+      'Ne mogu dohvatiti pregled (${odgovor.statusCode}).',
+    );
   }
 }

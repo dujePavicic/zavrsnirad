@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 
 import '../api_config.dart';
 import '../modeli/korisnik.dart';
+import 'api_klijent.dart';
 import 'token_spremiste.dart';
 
-/// Iznimka koja nosi čitljivu poruku o grešci prema korisniku.
 class AuthGreska implements Exception {
   final String poruka;
 
@@ -18,9 +18,11 @@ class AuthGreska implements Exception {
 }
 
 class AuthServis {
-  final TokenSpremiste _tokenSpremiste = TokenSpremiste();
+  final TokenSpremiste _tokenSpremiste =
+      TokenSpremiste();
 
-  /// Registracija novog korisnika.
+  final ApiKlijent _api = ApiKlijent();
+
   Future<Korisnik> registriraj({
     required String email,
     required String korisnickoIme,
@@ -50,12 +52,10 @@ class AuthServis {
       return Korisnik.izJsona(tijelo);
     }
 
-    throw AuthGreska(
-      _izvuciGresku(odgovor),
-    );
+    throw AuthGreska(_izvuciGresku(odgovor));
   }
 
-  /// Prijava.
+  /// Prijava nema access token pa namjerno ne ide kroz ApiKlijent.
   Future<void> prijavi({
     required String identifikator,
     required String lozinka,
@@ -84,78 +84,31 @@ class AuthServis {
       return;
     }
 
-    throw AuthGreska(
-      _izvuciGresku(odgovor),
-    );
+    if (odgovor.statusCode == 429) {
+      throw AuthGreska(
+        'Previše pokušaja. Pokušaj ponovno za koju minutu.',
+      );
+    }
+
+    throw AuthGreska(_izvuciGresku(odgovor));
   }
 
-  /// Osvježava access token.
   Future<void> osvjeziToken() async {
-    final refresh =
-        await _tokenSpremiste.dohvatiRefresh();
+    final uspjelo = await _api.osvjeziToken();
 
-    if (refresh == null) {
+    if (!uspjelo) {
+      await _tokenSpremiste.obrisiTokene();
+
       throw AuthGreska(
-        'Nema spremljenog tokena. Prijavi se ponovno.',
+        'Sesija je istekla. Prijavi se ponovno.',
       );
     }
-
-    final odgovor = await http.post(
-      Uri.parse(ApiConfig.osvjeziToken),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'refresh': refresh,
-      }),
-    );
-
-    if (odgovor.statusCode == 200) {
-      final tijelo = jsonDecode(
-        utf8.decode(odgovor.bodyBytes),
-      ) as Map<String, dynamic>;
-
-      final noviAccess =
-          tijelo['access'] as String;
-
-      final noviRefresh =
-          tijelo['refresh'] as String?;
-
-      if (noviRefresh != null) {
-        await _tokenSpremiste.spremiTokene(
-          access: noviAccess,
-          refresh: noviRefresh,
-        );
-      } else {
-        await _tokenSpremiste.spremiAccess(
-          noviAccess,
-        );
-      }
-
-      return;
-    }
-
-    throw AuthGreska(
-      'Sesija je istekla. Prijavi se ponovno.',
-    );
   }
 
-  /// Dohvaća podatke trenutno prijavljenog korisnika.
   Future<Korisnik> dohvatiJa() async {
-    final access =
-        await _tokenSpremiste.dohvatiAccess();
-
-    if (access == null) {
-      throw AuthGreska(
-        'Nisi prijavljen.',
-      );
-    }
-
-    final odgovor = await http.get(
-      Uri.parse(ApiConfig.ja),
-      headers: {
-        'Authorization': 'Bearer $access',
-      },
+    final odgovor = await _api.posalji(
+      'GET',
+      '/api/ja/',
     );
 
     if (odgovor.statusCode == 200) {
@@ -167,12 +120,10 @@ class AuthServis {
     }
 
     throw AuthGreska(
-      'Ne mogu dohvatiti podatke korisnika.',
+      _izvuciGresku(odgovor),
     );
   }
 
-  /// Ažurira profil korisnika.
-  /// Slika se šalje kao bytes pa radi na Webu, Androidu i desktopu.
   Future<Korisnik> azurirajProfil({
     required String ime,
     required String prezime,
@@ -180,44 +131,53 @@ class AuthServis {
     Uint8List? slikaBytes,
     String? nazivSlike,
   }) async {
-    final access =
-        await _tokenSpremiste.dohvatiAccess();
+    Future<http.Response> posaljiMultipart() async {
+      final access = await _api.trenutniAccess();
 
-    if (access == null) {
-      throw AuthGreska(
-        'Nisi prijavljen.',
+      final zahtjev = http.MultipartRequest(
+        'PATCH',
+        Uri.parse(ApiConfig.ja),
       );
+
+      zahtjev.headers['Authorization'] =
+          'Bearer $access';
+
+      zahtjev.fields['ime'] = ime;
+      zahtjev.fields['prezime'] = prezime;
+      zahtjev.fields['korisnicko_ime'] =
+          korisnickoIme;
+
+      if (slikaBytes != null) {
+        zahtjev.files.add(
+          http.MultipartFile.fromBytes(
+            'profilna_slika',
+            slikaBytes,
+            filename:
+                nazivSlike ?? 'profilna_slika.jpg',
+          ),
+        );
+      }
+
+      final poslano = await zahtjev.send();
+
+      return http.Response.fromStream(poslano);
     }
 
-    final zahtjev = http.MultipartRequest(
-      'PATCH',
-      Uri.parse(ApiConfig.ja),
-    );
+    var odgovor = await posaljiMultipart();
 
-    zahtjev.headers['Authorization'] =
-        'Bearer $access';
+    if (odgovor.statusCode == 401) {
+      final uspjelo = await _api.osvjeziToken();
 
-    zahtjev.fields['ime'] = ime;
-    zahtjev.fields['prezime'] = prezime;
-    zahtjev.fields['korisnicko_ime'] =
-        korisnickoIme;
+      if (!uspjelo) {
+        await _tokenSpremiste.obrisiTokene();
 
-    if (slikaBytes != null) {
-      zahtjev.files.add(
-        http.MultipartFile.fromBytes(
-          'profilna_slika',
-          slikaBytes,
-          filename: nazivSlike ?? 'profilna_slika.jpg',
-        ),
-      );
+        throw AuthGreska(
+          'Sesija je istekla. Prijavi se ponovno.',
+        );
+      }
+
+      odgovor = await posaljiMultipart();
     }
-
-    final poslano = await zahtjev.send();
-
-    final odgovor =
-        await http.Response.fromStream(
-      poslano,
-    );
 
     if (odgovor.statusCode == 200) {
       final tijelo = jsonDecode(
@@ -232,10 +192,12 @@ class AuthServis {
     );
   }
 
-  /// Odjava.
   Future<void> odjavi() async {
     final refresh =
         await _tokenSpremiste.dohvatiRefresh();
+
+    final access =
+        await _tokenSpremiste.dohvatiAccess();
 
     if (refresh != null) {
       try {
@@ -243,13 +205,14 @@ class AuthServis {
           Uri.parse(ApiConfig.odjava),
           headers: {
             'Content-Type': 'application/json',
+            if (access != null)
+              'Authorization': 'Bearer $access',
           },
           body: jsonEncode({
             'refresh': refresh,
           }),
         );
       } catch (_) {
-        // Lokalna odjava se svejedno nastavlja.
       }
     }
 
@@ -259,6 +222,10 @@ class AuthServis {
   String _izvuciGresku(
     http.Response odgovor,
   ) {
+    if (odgovor.statusCode == 429) {
+      return 'Previše pokušaja. Pokušaj ponovno za koju minutu.';
+    }
+
     try {
       final tijelo = jsonDecode(
         utf8.decode(odgovor.bodyBytes),
@@ -268,16 +235,17 @@ class AuthServis {
         return tijelo['detail'].toString();
       }
 
-      final prvo = tijelo.values.first;
+      if (tijelo.isNotEmpty) {
+        final prvo = tijelo.values.first;
 
-      if (prvo is List &&
-          prvo.isNotEmpty) {
-        return prvo.first.toString();
+        if (prvo is List && prvo.isNotEmpty) {
+          return prvo.first.toString();
+        }
+
+        return prvo.toString();
       }
+    } catch (_) {}
 
-      return prvo.toString();
-    } catch (_) {
-      return 'Došlo je do greške (${odgovor.statusCode}).';
-    }
+    return 'Došlo je do greške (${odgovor.statusCode}).';
   }
 }

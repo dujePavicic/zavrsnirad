@@ -1,7 +1,5 @@
 import 'transakcija.dart';
 
-/// Jedna stavka u razdiobi po kategorijama
-/// (za donut graf, legendu i budžet po kategorijama).
 class StavkaKategorije {
   final int kategorija;
   final String naziv;
@@ -10,7 +8,6 @@ class StavkaKategorije {
   final String iznos;
   final double postotak;
 
-  // Budžet kategorije može biti null ako nije postavljen.
   final String? budzet;
   final String? preostaloBudzeta;
 
@@ -39,7 +36,26 @@ class StavkaKategorije {
   }
 }
 
-/// Sve brojke za dashboard (odgovor s GET /api/pregled/).
+class GarancijeSazetak {
+  final int aktivne;
+  final int istjeceUskoro;
+  final String? najbliziIstek;
+
+  const GarancijeSazetak({
+    required this.aktivne,
+    required this.istjeceUskoro,
+    required this.najbliziIstek,
+  });
+
+  factory GarancijeSazetak.izJsona(Map<String, dynamic>? json) {
+    return GarancijeSazetak(
+      aktivne: json?['aktivne'] as int? ?? 0,
+      istjeceUskoro: json?['istjece_uskoro'] as int? ?? 0,
+      najbliziIstek: json?['najblizi_istek']?.toString(),
+    );
+  }
+}
+
 class Pregled {
   final int godina;
   final int mjesec;
@@ -51,6 +67,9 @@ class Pregled {
   // Nove vrijednosti koje backend vraća.
   final String danasPotroseno;
   final String dnevniProsjek;
+  final String tjedanPotroseno;
+  final String? tjedanOd;
+  final GarancijeSazetak garancije;
 
   final String? budzet;
   final String? raspoloziviBudzet;
@@ -73,6 +92,9 @@ class Pregled {
     required this.saldo,
     required this.danasPotroseno,
     required this.dnevniProsjek,
+    required this.tjedanPotroseno,
+    required this.tjedanOd,
+    required this.garancije,
     required this.budzet,
     required this.raspoloziviBudzet,
     required this.preostaloBudzeta,
@@ -111,6 +133,11 @@ class Pregled {
 
       danasPotroseno: json['danas_potroseno']?.toString() ?? '0.00',
       dnevniProsjek: json['dnevni_prosjek']?.toString() ?? '0.00',
+      tjedanPotroseno: json['tjedan_potroseno']?.toString() ?? '0.00',
+      tjedanOd: json['tjedan_od']?.toString(),
+      garancije: GarancijeSazetak.izJsona(
+        json['garancije'] as Map<String, dynamic>?,
+      ),
 
       budzet: json['budzet']?.toString(),
       raspoloziviBudzet: json['raspolozivi_budzet']?.toString(),
