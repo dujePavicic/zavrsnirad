@@ -41,6 +41,12 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _buduci = _dohvati();
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _pretragaController.dispose();

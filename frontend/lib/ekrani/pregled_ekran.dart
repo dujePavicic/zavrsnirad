@@ -12,6 +12,7 @@ import '../servisi/transakcija_servis.dart';
 import 'transakcija_detalj_ekran.dart';
 import 'budzet_ekran.dart';
 import 'racuni_ekran.dart';
+import 'kategorije_ekran.dart';
 
 class PregledEkran extends StatefulWidget {
   const PregledEkran({super.key});
@@ -356,6 +357,14 @@ class _PregledEkranState extends State<PregledEkran> {
             mjesec: p.mjesec,
             kategorija: k.kategorija,
           ),
+          onUpravljajKategorijama: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const KategorijeEkran(),
+              ),
+            );
+          },
         ),
 
         const SizedBox(height: 16),
@@ -578,11 +587,13 @@ class _GlavnaKartica extends StatelessWidget {
   final Pregled pregled;
   final VoidCallback onTap;
   final ValueChanged<StavkaKategorije> onKategorijaTap;
+  final VoidCallback onUpravljajKategorijama;
 
   const _GlavnaKartica({
     required this.pregled,
     required this.onTap,
     required this.onKategorijaTap,
+    required this.onUpravljajKategorijama,
   });
 
   @override
@@ -652,6 +663,35 @@ class _GlavnaKartica extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Upravljaj kategorijama',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: onUpravljajKategorijama,
+                    child: Ink(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: shema.surfaceContainerHighest
+                            .withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: shema.outlineVariant
+                              .withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.category_outlined,
+                        size: 20,
+                        color: shema.primary,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
