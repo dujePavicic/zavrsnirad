@@ -3,9 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../modeli/pregled.dart';
 import '../servisi/pregled_servis.dart';
 
-/// Jedan izvor podataka pregleda koji dijele ekrani Pregledi i Budžet.
-/// Kad se pozove osvjezi(), dohvati nove brojke pa notifyListeners() javi
-/// svim ekranima koji ga slušaju da se ponovno iscrtaju.
 class PregledPruzatelj extends ChangeNotifier {
   final PregledServis _servis = PregledServis();
 
@@ -16,6 +13,13 @@ class PregledPruzatelj extends ChangeNotifier {
   Pregled? get pregled => _pregled;
   bool get seUcitava => _ucitava;
   String? get greska => _greska;
+
+  void resetiraj() {
+    _pregled = null;
+    _ucitava = false;
+    _greska = null;
+    notifyListeners();
+  }
 
   Future<void> osvjezi() async {
     _ucitava = true;

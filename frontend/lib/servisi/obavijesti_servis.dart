@@ -83,6 +83,8 @@ class ObavijestiServis {
     return true;
   }
 
+  
+
   Future<void> zakaziGaranciju(
     Garancija garancija,
     Korisnik korisnik,
@@ -107,12 +109,10 @@ class ObavijestiServis {
       istek.year,
       istek.month,
       istek.day,
-      9,
-    ).subtract(
-      Duration(days: korisnik.podsjetnikGarancijeDana),
+      9,).subtract(Duration(days: korisnik.podsjetnikGarancijeDana),
     );
 
-    final zoniraniDatum = tz.TZDateTime(
+    final lokalniDatum = tz.TZDateTime(
       tz.local,
       datumPodsjetnika.year,
       datumPodsjetnika.month,
@@ -120,7 +120,7 @@ class ObavijestiServis {
       datumPodsjetnika.hour,
     );
 
-    if (!zoniraniDatum.isAfter(tz.TZDateTime.now(tz.local))) {
+    if (!lokalniDatum.isAfter(tz.TZDateTime.now(tz.local))) {
       return;
     }
 
@@ -142,7 +142,7 @@ class ObavijestiServis {
       body:
           'Garancija za ${garancija.nazivProizvoda} istječe za '
           '${korisnik.podsjetnikGarancijeDana} dana.',
-      scheduledDate: zoniraniDatum,
+      scheduledDate: lokalniDatum,
       notificationDetails: detalji,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: 'garancija:${garancija.id}',

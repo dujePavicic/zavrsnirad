@@ -14,8 +14,17 @@ void main() {
         ChangeNotifierProvider(
           create: (_) => AuthPruzatelj()..provjeriPrijavu(),
         ),
-        ChangeNotifierProvider(
+        ChangeNotifierProxyProvider<AuthPruzatelj, PregledPruzatelj>(
           create: (_) => PregledPruzatelj(),
+          update: (_, auth, pregled) {
+            final provider = pregled ?? PregledPruzatelj();
+
+            if (auth.status != AuthStatus.prijavljen) {
+              provider.resetiraj();
+            }
+
+            return provider;
+          },
         ),
       ],
       child: const ZavrsniApp(),
@@ -56,7 +65,9 @@ class PUTOKAZ extends StatelessWidget {
         );
 
       case AuthStatus.prijavljen:
-        return const GlavniEkran();
+        return GlavniEkran(
+          key: ValueKey(auth.korisnik?.id),
+        );
 
       case AuthStatus.ucitavanje:
       case AuthStatus.odjavljen:

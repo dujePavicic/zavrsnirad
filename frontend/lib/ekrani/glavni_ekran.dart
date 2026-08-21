@@ -26,7 +26,8 @@ class GlavniEkran
 class _GlavniEkranState
     extends State<GlavniEkran> {
   int _odabraniIndeks = 0;
-  int _racuniOsvjezenje = 0;
+  int _transakcijeOsvjezi = 0;
+  int _racuniOsvjezi = 0;
 
   @override
   Widget build(
@@ -40,8 +41,12 @@ class _GlavniEkranState
 
     final tabovi = [
       const PregledEkran(),
-      const TransakcijeEkran(),
-      RacuniEkran(key: ValueKey(_racuniOsvjezenje)),
+      RacuniEkran(
+        key: ValueKey(_racuniOsvjezi),
+      ),
+      TransakcijeEkran(
+        key: ValueKey(_transakcijeOsvjezi),
+      ),
       const BudzetEkran(),
       const _ProfilTab(),
     ];
@@ -62,8 +67,12 @@ class _GlavniEkranState
           setState(() {
             _odabraniIndeks = i;
 
+            if (i == 1) {
+              _racuniOsvjezi++;
+            }
+
             if (i == 2) {
-              _racuniOsvjezenje++;
+              _transakcijeOsvjezi++;
             }
           });
         },
@@ -74,14 +83,14 @@ class _GlavniEkranState
             label: 'Pregled',
           ),
           NavigationDestination(
-            icon: Icon(Icons.swap_horiz_outlined),
-            selectedIcon: Icon(Icons.swap_horiz_rounded),
-            label: 'Transakcije',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long_rounded),
             label: 'Računi',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.swap_horiz_outlined),
+            selectedIcon: Icon(Icons.swap_horiz_rounded),
+            label: 'Transakcije',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),

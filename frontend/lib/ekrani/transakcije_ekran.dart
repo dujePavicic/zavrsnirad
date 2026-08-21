@@ -41,6 +41,12 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _buduci = _dohvati();
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _pretragaController.dispose();
@@ -187,8 +193,6 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     if (promijenjeno == true) {
       _osvjeziListu();
     } else {
-      // Uređivanje detalja može promijeniti lokalni objekt,
-      // pa pri povratku svejedno dohvatimo svježe podatke.
       _osvjeziListu();
     }
   }

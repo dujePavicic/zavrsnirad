@@ -23,8 +23,22 @@ class StavkaKategorije {
   });
 
   factory StavkaKategorije.izJsona(Map<String, dynamic> json) {
+    final kategorijaVrijednost = json['kategorija'];
+
+    if (kategorijaVrijednost == null) {
+      throw const FormatException('Stavka kategorije nema ID kategorije.');
+    }
+
+    final kategorijaId = kategorijaVrijednost is num
+        ? kategorijaVrijednost.toInt()
+        : int.tryParse(kategorijaVrijednost.toString());
+
+    if (kategorijaId == null) {
+      throw const FormatException('Neispravan ID kategorije.');
+    }
+
     return StavkaKategorije(
-      kategorija: json['kategorija'] as int,
+      kategorija: kategorijaId,
       naziv: json['naziv']?.toString() ?? '',
       boja: json['boja']?.toString() ?? '#9E9E9E',
       ikona: json['ikona']?.toString() ?? 'category',
@@ -47,11 +61,11 @@ class GarancijeSazetak {
     required this.najbliziIstek,
   });
 
-  factory GarancijeSazetak.izJsona(Map<String, dynamic>? json) {
+  factory GarancijeSazetak.izJsona(Map<String, dynamic> json) {
     return GarancijeSazetak(
-      aktivne: json?['aktivne'] as int? ?? 0,
-      istjeceUskoro: json?['istjece_uskoro'] as int? ?? 0,
-      najbliziIstek: json?['najblizi_istek']?.toString(),
+      aktivne: (json['aktivne'] as num?)?.toInt() ?? 0,
+      istjeceUskoro: (json['istjece_uskoro'] as num?)?.toInt() ?? 0,
+      najbliziIstek: json['najblizi_istek']?.toString(),
     );
   }
 }
@@ -64,12 +78,8 @@ class Pregled {
   final String ukupnoTroskovi;
   final String saldo;
 
-  // Nove vrijednosti koje backend vraća.
   final String danasPotroseno;
   final String dnevniProsjek;
-  final String tjedanPotroseno;
-  final String? tjedanOd;
-  final GarancijeSazetak garancije;
 
   final String? budzet;
   final String? raspoloziviBudzet;
@@ -84,6 +94,8 @@ class Pregled {
   final List<StavkaKategorije> poKategorijama;
   final List<Transakcija> zadnjeTransakcije;
 
+  final GarancijeSazetak garancije;
+
   Pregled({
     required this.godina,
     required this.mjesec,
@@ -92,9 +104,6 @@ class Pregled {
     required this.saldo,
     required this.danasPotroseno,
     required this.dnevniProsjek,
-    required this.tjedanPotroseno,
-    required this.tjedanOd,
-    required this.garancije,
     required this.budzet,
     required this.raspoloziviBudzet,
     required this.preostaloBudzeta,
@@ -104,28 +113,39 @@ class Pregled {
     required this.brojTransakcija,
     required this.poKategorijama,
     required this.zadnjeTransakcije,
+    required this.garancije,
   });
 
   factory Pregled.izJsona(Map<String, dynamic> json) {
+
     final kategorije = (json['po_kategorijama'] as List? ?? [])
-        .map(
-          (e) => StavkaKategorije.izJsona(
-            e as Map<String, dynamic>,
-          ),
-        )
+        .whereType<Map<String, dynamic>>()
+        .where((e) => e['kategorija'] != null)
+        .map(StavkaKategorije.izJsona)
         .toList();
 
     final transakcije = (json['zadnje_transakcije'] as List? ?? [])
-        .map(
-          (e) => Transakcija.izJsona(
-            e as Map<String, dynamic>,
-          ),
-        )
+        .whereType<Map<String, dynamic>>()
+        .map(Transakcija.izJsona)
         .toList();
 
+    final godinaVrijednost = json['godina'];
+    final mjesecVrijednost = json['mjesec'];
+
+    final godina = godinaVrijednost is num
+        ? godinaVrijednost.toInt()
+        : int.tryParse(godinaVrijednost?.toString() ?? '');
+    final mjesec = mjesecVrijednost is num
+        ? mjesecVrijednost.toInt()
+        : int.tryParse(mjesecVrijednost?.toString() ?? '');
+
+    if (godina == null || mjesec == null) {
+      throw const FormatException('Pregled nema ispravnu godinu ili mjesec.');
+    }
+
     return Pregled(
-      godina: json['godina'] as int,
-      mjesec: json['mjesec'] as int,
+      godina: godina,
+      mjesec: mjesec,
 
       ukupnoPrihodi: json['ukupno_prihodi']?.toString() ?? '0.00',
       ukupnoTroskovi: json['ukupno_troskovi']?.toString() ?? '0.00',
@@ -133,11 +153,6 @@ class Pregled {
 
       danasPotroseno: json['danas_potroseno']?.toString() ?? '0.00',
       dnevniProsjek: json['dnevni_prosjek']?.toString() ?? '0.00',
-      tjedanPotroseno: json['tjedan_potroseno']?.toString() ?? '0.00',
-      tjedanOd: json['tjedan_od']?.toString(),
-      garancije: GarancijeSazetak.izJsona(
-        json['garancije'] as Map<String, dynamic>?,
-      ),
 
       budzet: json['budzet']?.toString(),
       raspoloziviBudzet: json['raspolozivi_budzet']?.toString(),
@@ -149,10 +164,13 @@ class Pregled {
       preostaloZaRaspodjelu:
           json['preostalo_za_raspodjelu']?.toString() ?? '0.00',
 
-      brojTransakcija: json['broj_transakcija'] as int? ?? 0,
+      brojTransakcija: (json['broj_transakcija'] as num?)?.toInt() ?? 0,
 
       poKategorijama: kategorije,
       zadnjeTransakcije: transakcije,
+      garancije: GarancijeSazetak.izJsona(
+        json['garancije'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      ),
     );
   }
 }

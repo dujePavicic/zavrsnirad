@@ -13,8 +13,7 @@ class PostavkeObavijestiEkran extends StatefulWidget {
       _PostavkeObavijestiEkranState();
 }
 
-class _PostavkeObavijestiEkranState
-    extends State<PostavkeObavijestiEkran> {
+class _PostavkeObavijestiEkranState extends State<PostavkeObavijestiEkran> {
   final AuthServis _authServis = AuthServis();
   final GarancijaServis _garancijaServis = GarancijaServis();
   final ObavijestiServis _obavijestiServis = ObavijestiServis();
@@ -52,11 +51,7 @@ class _PostavkeObavijestiEkranState
       setState(() => _ucitavanje = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e.toString().replaceFirst('AuthGreska: ', ''),
-          ),
-        ),
+        SnackBar(content: Text(e.toString().replaceFirst('AuthGreska: ', ''))),
       );
     }
   }
@@ -70,8 +65,7 @@ class _PostavkeObavijestiEkranState
       var ukljucene = _ukljucene;
 
       if (ukljucene) {
-        final dozvoljeno =
-            await _obavijestiServis.zatraziDozvolu();
+        final dozvoljeno = await _obavijestiServis.zatraziDozvolu();
 
         if (!dozvoljeno) {
           ukljucene = false;
@@ -91,24 +85,17 @@ class _PostavkeObavijestiEkranState
         }
       }
 
-      final korisnik =
-          await _authServis.azurirajPostavkeObavijesti(
+      final korisnik = await _authServis.azurirajPostavkeObavijesti(
         obavijestiGarancije: ukljucene,
         podsjetnikGarancijeDana: _dana,
       );
 
-      final garancije =
-          await _garancijaServis.dohvatiGarancije();
+      final garancije = await _garancijaServis.dohvatiGarancije();
 
       if (korisnik.obavijestiGarancije) {
-        await _obavijestiServis.sinkronizirajSve(
-          garancije,
-          korisnik,
-        );
+        await _obavijestiServis.sinkronizirajSve(garancije, korisnik);
       } else {
-        await _obavijestiServis.otkaziSveGarancije(
-          garancije,
-        );
+        await _obavijestiServis.otkaziSveGarancije(garancije);
       }
 
       if (!mounted) return;
@@ -120,9 +107,7 @@ class _PostavkeObavijestiEkranState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Postavke obavijesti su spremljene.'),
-        ),
+        const SnackBar(content: Text('Postavke obavijesti su spremljene.')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -130,7 +115,8 @@ class _PostavkeObavijestiEkranState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e.toString()
+            e
+                .toString()
                 .replaceFirst('AuthGreska: ', '')
                 .replaceFirst('Exception: ', ''),
           ),
@@ -142,7 +128,6 @@ class _PostavkeObavijestiEkranState
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -169,8 +154,7 @@ class _PostavkeObavijestiEkranState
                       color: shema.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: shema.outlineVariant
-                            .withValues(alpha: 0.4),
+                        color: shema.outlineVariant.withValues(alpha: 0.4),
                       ),
                     ),
                     child: SwitchListTile.adaptive(
@@ -187,9 +171,7 @@ class _PostavkeObavijestiEkranState
                         Icons.notifications_active_outlined,
                         color: shema.primary,
                       ),
-                      title: const Text(
-                        'Obavijesti o garancijama',
-                      ),
+                      title: const Text('Obavijesti o garancijama'),
                       subtitle: const Text(
                         'Primi podsjetnik prije nego što garancija istekne.',
                       ),
@@ -216,11 +198,11 @@ class _PostavkeObavijestiEkranState
                     itemCount: _ponudeniDani.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 1.9,
-                    ),
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 1.9,
+                        ),
                     itemBuilder: (context, index) {
                       final dani = _ponudeniDani[index];
                       final odabrano = _dana == dani;
@@ -243,8 +225,9 @@ class _PostavkeObavijestiEkranState
                               border: Border.all(
                                 color: odabrano
                                     ? shema.primary.withValues(alpha: 0.45)
-                                    : shema.outlineVariant
-                                        .withValues(alpha: 0.4),
+                                    : shema.outlineVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
                               ),
                             ),
                             child: Center(
@@ -273,15 +256,14 @@ class _PostavkeObavijestiEkranState
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.save_outlined),
                     label: Text(
                       _spremanje ? 'Spremanje...' : 'Spremi postavke',
                     ),
                   ),
+                  const SizedBox(height: 12),
                   if (_korisnik != null) ...[
                     const SizedBox(height: 14),
                     Text(
