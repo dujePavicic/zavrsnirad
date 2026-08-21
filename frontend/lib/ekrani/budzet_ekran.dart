@@ -51,7 +51,6 @@ class BudzetEkran extends StatelessWidget {
         tip: 'TROSAK',
       );
 
-      // Kategorije koje već imaju postavljen budžet.
       final zauzeteKategorije = p.poKategorijama
           .where((k) => k.budzet != null)
           .map((k) => k.kategorija)

@@ -187,8 +187,6 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     if (promijenjeno == true) {
       _osvjeziListu();
     } else {
-      // Uređivanje detalja može promijeniti lokalni objekt,
-      // pa pri povratku svejedno dohvatimo svježe podatke.
       _osvjeziListu();
     }
   }
