@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
 import '../api_config.dart';
 import '../modeli/budzet.dart';
 import 'token_spremiste.dart';
 import '../modeli/budzet_kategorije.dart';
 
-/// Dohvaća i postavlja mjesečni budžet preko /api/budzeti/.
 class BudzetServis {
   final TokenSpremiste _tokenSpremiste = TokenSpremiste();
 
@@ -39,7 +37,6 @@ class BudzetServis {
     return 'Došlo je do greške (${odgovor.statusCode}).';
   }
 
-  /// Budžet za zadani mjesec ili null ako nije postavljen.
   Future<Budzet?> dohvatiBudzet({
     required int godina,
     required int mjesec,
@@ -60,7 +57,6 @@ class BudzetServis {
     throw Exception('Ne mogu dohvatiti budžet (${odgovor.statusCode}).');
   }
 
-  /// Postavi budžet: ako već postoji za taj mjesec -> PATCH, inače POST.
   Future<void> postaviBudzet({
     required int godina,
     required int mjesec,

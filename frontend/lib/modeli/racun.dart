@@ -1,12 +1,10 @@
 import 'transakcija.dart';
 
-/// Jedan račun iz arhive. Uz sebe ima ugniježđenu transakciju
-/// (backend je uvijek stvori pri spremanju računa).
 class Racun {
   final int id;
   final String trgovina;
-  final String? slika; // puni URL slike ili null
-  final String prepoznatiTekst; // sirovi OCR tekst
+  final String? slika; 
+  final String prepoznatiTekst; 
   final String datumSpremanja;
   final Transakcija? transakcija;
 
@@ -32,7 +30,6 @@ class Racun {
     );
   }
 
-  // Pomoćni getteri za prikaz (podaci dolaze iz ugniježđene transakcije):
   String get iznos => transakcija?.iznos ?? '0.00';
   String get kategorijaNaziv => transakcija?.kategorijaNaziv ?? '';
   String get kategorijaBoja => transakcija?.kategorijaBoja ?? '#9E9E9E';

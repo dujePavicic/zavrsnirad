@@ -1,17 +1,14 @@
-/// Jedna transakcija (trošak ili prihod).
-/// Polja kategorije su "spljoštena" jer ih backend šalje uz transakciju.
+
 class Transakcija {
   final int id;
-  final String tip; // "TROSAK" ili "PRIHOD"
-  final String iznos; // npr. "31.50"
+  final String tip; 
+  final String iznos; 
   final int? kategorija;
   final String kategorijaNaziv;
   final String kategorijaBoja;
   final String kategorijaIkona;
-  final String datum; // "2026-08-02"
+  final String datum; 
   final String opis;
-
-  /// null = ručna transakcija, int = povezana je s računom
   final int? racunId;
 
   Transakcija({

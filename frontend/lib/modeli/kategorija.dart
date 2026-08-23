@@ -1,10 +1,10 @@
-/// Kategorija troška ili prihoda (sustavska ili korisnikova vlastita).
+
 class Kategorija {
   final int id;
   final String naziv;
-  final String tip; // "TROSAK" ili "PRIHOD"
-  final String boja; // hex
-  final String ikona; // naziv Material ikone
+  final String tip; 
+  final String boja; 
+  final String ikona; 
   final bool jeSustavska;
 
   Kategorija({

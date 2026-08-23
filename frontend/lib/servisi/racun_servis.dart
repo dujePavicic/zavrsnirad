@@ -1,13 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:http/http.dart' as http;
-
 import '../api_config.dart';
 import '../modeli/racun.dart';
 import 'api_klijent.dart';
 
-/// Dohvaća, dodaje i briše račune iz arhive.
 class RacunServis {
   final ApiKlijent _api = ApiKlijent();
 
@@ -75,10 +72,6 @@ class RacunServis {
     throw Exception(_poruka(odgovor));
   }
 
-  /// Dodaje račun postojećoj transakciji.
-  ///
-  /// Multipart se mora posebno ponoviti nakon refresha jer već poslani
-  /// MultipartRequest nije moguće ponovno koristiti.
   Future<Racun> dodajPostojecojTransakciji({
     required int transakcijaId,
     required Uint8List slikaBytes,
@@ -126,7 +119,6 @@ class RacunServis {
         throw SesijaIstekla();
       }
 
-      // Novi MultipartRequest s novim access tokenom.
       odgovor = await posaljiMultipart();
     }
 

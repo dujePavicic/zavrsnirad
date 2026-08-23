@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import '../modeli/pregled.dart';
 import 'api_klijent.dart';
 

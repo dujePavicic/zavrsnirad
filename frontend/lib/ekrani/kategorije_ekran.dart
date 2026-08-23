@@ -173,8 +173,7 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shema = theme.colorScheme;
+
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(

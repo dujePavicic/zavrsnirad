@@ -7,7 +7,6 @@ class StavkaKategorije {
   final String ikona;
   final String iznos;
   final double postotak;
-
   final String? budzet;
   final String? preostaloBudzeta;
 

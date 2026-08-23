@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
 import '../api_config.dart';
 import 'token_spremiste.dart';
 
@@ -129,7 +127,6 @@ class ApiKlijent {
         return false;
       }
 
-      // Backend koristi rotaciju refresh tokena.
       await _tokeni.spremiTokene(
         access: noviAccess,
         refresh: noviRefresh ?? refresh,

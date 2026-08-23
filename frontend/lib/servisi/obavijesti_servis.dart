@@ -3,7 +3,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
-
 import '../modeli/garancija.dart';
 import '../modeli/korisnik.dart';
 
@@ -35,7 +34,6 @@ class ObavijestiServis {
       final zona = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(zona.identifier));
     } catch (_) {
-      // Ako dohvat zone ne uspije, timezone paket ostaje na zadanoj zoni.
     }
 
     const android = AndroidInitializationSettings('ic_notification');
@@ -76,7 +74,6 @@ class ObavijestiServis {
       sound: true,
     );
 
-    // Na platformi na kojoj implementation ne postoji vraća null.
     if (androidRezultat != null) return androidRezultat;
     if (iosRezultat != null) return iosRezultat;
 

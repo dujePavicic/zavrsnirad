@@ -289,7 +289,6 @@ class _RacuniEkranState extends State<RacuniEkran> {
     if (promjena == true && mounted) {
       await _osvjeziGarancije();
     } else if (mounted) {
-      // Uređivanje detalja može promijeniti podatke i bez pop rezultata.
       setState(() {
         _buduceGarancije =
             _garancijaServis.dohvatiGarancije();

@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-
 import '../modeli/pregled.dart';
 import '../servisi/pregled_servis.dart';
 

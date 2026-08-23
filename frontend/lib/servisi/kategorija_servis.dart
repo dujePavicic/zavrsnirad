@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
 import '../api_config.dart';
 import '../modeli/kategorija.dart';
 import 'token_spremiste.dart';
 
-/// Dohvaća i mijenja kategorije preko /api/kategorije/.
 class KategorijaServis {
   final TokenSpremiste _tokenSpremiste = TokenSpremiste();
 

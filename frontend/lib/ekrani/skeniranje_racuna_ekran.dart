@@ -41,7 +41,6 @@ class _SkeniranjeRacunaEkranState
       TextEditingController();
 
   XFile? _slika;
-  // ignore: unused_field
   String _prepoznatiTekst = '';
   Map<String, dynamic>? _analiza;
 
@@ -451,7 +450,6 @@ class _SkeniranjeRacunaEkranState
             novaTransakcijaId,
           );
         } catch (_) {
-          // Ako rollback ne uspije, originalna greška se i dalje prikazuje.
         }
       }
 

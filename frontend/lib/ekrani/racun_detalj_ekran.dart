@@ -327,7 +327,7 @@ class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
             child: Image.network(
               racun.slika!,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => _placeholder(context),
+              errorBuilder: (_, _, _) => _placeholder(context),
               loadingBuilder: (c, w, p) {
                 return p == null
                     ? w
@@ -564,7 +564,7 @@ class _PregledSlikeRacuna extends StatelessWidget {
                   child: CircularProgressIndicator(),
                 );
               },
-              errorBuilder: (_, __, ___) {
+              errorBuilder: (_, _, _) {
                 return const Center(
                   child: Text(
                     'Slika računa se ne može učitati.',

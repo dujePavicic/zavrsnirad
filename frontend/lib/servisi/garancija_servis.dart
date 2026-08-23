@@ -1,7 +1,5 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
 import '../modeli/garancija.dart';
 import 'api_klijent.dart';
 
@@ -87,7 +85,6 @@ class GarancijaServis {
       'racun': racun,
     };
 
-    // Kod doživotne garancije datum_isteka se uopće ne šalje.
     if (datumIsteka != null) {
       tijelo['datum_isteka'] = datumIsteka;
     }
@@ -126,8 +123,6 @@ class GarancijaServis {
       'napomena': napomena,
       'obavijesti': obavijesti,
       'racun': racun,
-      // Kod PATCH-a null je potreban ako postojeću garanciju
-      // mijenjamo u doživotnu.
       'datum_isteka': dozivotna ? null : datumIsteka,
     };
 
