@@ -1,9 +1,9 @@
-/// Mjesečni budžet korisnika (jedan po mjesecu).
+
 class Budzet {
   final int id;
   final int godina;
   final int mjesec;
-  final String iznos; // npr. "800.00"
+  final String iznos; 
 
   Budzet({
     required this.id,

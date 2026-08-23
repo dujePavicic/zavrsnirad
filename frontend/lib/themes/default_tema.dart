@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Glavna brand boja aplikacije.
-/// Koristi se kao baza za LIGHT i DARK temu.
 const Color bojaNaglaska = Color(0xFF22C55E);
 
-/// Dodatne boje dizajn sistema.
 const Color pozadinaSvijetla = Color(0xFFF7F9F7);
 const Color povrsinaSvijetla = Color(0xFFFFFFFF);
 const Color sekundarnaPovrsinaSvijetla = Color(0xFFF0F3F1);
@@ -299,8 +296,6 @@ ThemeData izradiTemu(Brightness svjetlina) {
   );
 }
 
-/// Sadržaj input polja.
-/// Vizualni izgled polja definiran je globalno u temi.
 InputDecoration izgledPolja({
   required String oznaka,
   required String natuknica,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'providers/auth_provider.dart';
 import 'ekrani/prijava.dart';
 import 'themes/default_tema.dart';
@@ -48,7 +47,6 @@ class ZavrsniApp extends StatelessWidget {
   }
 }
 
-/// Odlučuje koji ekran prikazati ovisno o statusu prijave.
 class PUTOKAZ extends StatelessWidget {
   const PUTOKAZ({super.key});
 

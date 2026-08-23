@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:http/http.dart' as http;
-
 import '../api_config.dart';
 import '../modeli/korisnik.dart';
 import 'api_klijent.dart';
@@ -55,7 +53,6 @@ class AuthServis {
     throw AuthGreska(_izvuciGresku(odgovor));
   }
 
-  /// Prijava nema access token pa namjerno ne ide kroz ApiKlijent.
   Future<void> prijavi({
     required String identifikator,
     required String lozinka,

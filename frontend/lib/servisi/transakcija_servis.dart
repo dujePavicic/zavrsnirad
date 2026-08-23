@@ -1,11 +1,8 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
 import '../modeli/transakcija.dart';
 import 'api_klijent.dart';
 
-/// Dohvaća, sprema, uređuje i briše transakcije.
 class TransakcijaServis {
   final ApiKlijent _api = ApiKlijent();
 
