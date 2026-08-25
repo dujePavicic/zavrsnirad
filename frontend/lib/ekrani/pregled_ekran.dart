@@ -170,6 +170,10 @@ class _PregledEkranState extends State<PregledEkran> {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
     final imaBudzet = p.budzet != null;
+    final budzet = uBroj(p.budzet ?? '0');
+    final potroseno = uBroj(p.ukupnoTroskovi);
+    final preostalo = budzet - potroseno;
+    final postotak = budzet > 0 ? (potroseno / budzet) * 100 : 0.0;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -213,13 +217,13 @@ class _PregledEkranState extends State<PregledEkran> {
                   _PovijesniBudzetRedak(
                     naslov: 'Preostalo',
                     vrijednost:
-                        formatNovac(p.preostaloBudzeta ?? '0'),
+                        formatNovac(preostalo.toStringAsFixed(2)),
                   ),
                   const SizedBox(height: 10),
                   _PovijesniBudzetRedak(
                     naslov: 'Iskorišteno',
                     vrijednost:
-                        '${(p.postotakBudzeta ?? 0).toStringAsFixed(0)}%',
+                        '${postotak.toStringAsFixed(0)}%',
                   ),
                 ],
               ],
@@ -781,7 +785,7 @@ class _Donut extends StatelessWidget {
                   if (pregled.budzet != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      'od ${formatNovac(pregled.raspoloziviBudzet ?? pregled.budzet!)}',
+                      'od ${formatNovac(pregled.budzet!)}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: shema.onSurfaceVariant,
                       ),
@@ -1054,8 +1058,13 @@ class _BudzetKartica extends StatelessWidget {
     final shema = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final imaBudzet = pregled.budzet != null;
-    final postotak = pregled.postotakBudzeta ?? 0;
-    final udio = (postotak / 100).clamp(0.0, 1.0);
+    final budzet = uBroj(pregled.budzet ?? '0');
+    final potroseno = uBroj(pregled.ukupnoTroskovi);
+    final preostalo = budzet - potroseno;
+    final postotak = budzet > 0 ? (potroseno / budzet) * 100 : 0.0;
+    final udio = budzet > 0
+        ? (potroseno / budzet).clamp(0.0, 1.0)
+        : 0.0;
 
     final Color progressBoja;
     if (postotak >= 100) {
@@ -1114,7 +1123,7 @@ class _BudzetKartica extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         imaBudzet
-                            ? 'Preostalo ${formatNovac(pregled.preostaloBudzeta ?? "0")}'
+                            ? 'Preostalo ${formatNovac(preostalo.toStringAsFixed(2))}'
                             : 'Budžet nije bio postavljen',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: shema.onSurfaceVariant,

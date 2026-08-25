@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../modeli/kategorija.dart';
 import '../modeli/transakcija.dart';
 import '../pomocno/format.dart';
+import '../pomocno/kategorije_redoslijed.dart';
 import '../servisi/kategorija_servis.dart';
 import '../servisi/transakcija_servis.dart';
 import 'transakcija_detalj_ekran.dart';
@@ -72,12 +73,19 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
 
   Future<void> _ucitajKategorije() async {
     try {
-      final kategorije = await _kategorijaServis.dohvatiKategorije();
+      final sve = await _kategorijaServis.dohvatiKategorije();
+      final spremljeno = await ucitajVidljive();
+      final p = podijeli(sve, spremljeno);
 
       if (!mounted) return;
 
       setState(() {
-        _kategorije = kategorije;
+        _kategorije = p.vidljive;
+
+        if (_kategorijaId != null &&
+            !_kategorije.any((k) => k.id == _kategorijaId)) {
+          _kategorijaId = null;
+        }
       });
     } catch (_) {}
   }

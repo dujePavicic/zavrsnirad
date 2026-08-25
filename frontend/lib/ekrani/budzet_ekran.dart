@@ -15,16 +15,13 @@ class BudzetEkran extends StatelessWidget {
       context: context,
       builder: (_) => _DijalogBudzeta(pocetni: p.budzet),
     );
-
     if (unos == null) return;
-
     try {
       await BudzetServis().postaviBudzet(
         godina: p.godina,
         mjesec: p.mjesec,
         iznos: unos,
       );
-
       if (context.mounted) {
         await context.read<PregledPruzatelj>().osvjezi();
       }
@@ -84,19 +81,15 @@ class BudzetEkran extends StatelessWidget {
           ).clamp(0.0, double.infinity),
         ),
       );
-
       if (rezultat == null) return;
-
       await BudzetServis().postaviBudzetKategorije(
         godina: p.godina,
         mjesec: p.mjesec,
         kategorija: rezultat.kategorija.id,
         iznos: rezultat.iznos,
       );
-
       if (context.mounted) {
         await context.read<PregledPruzatelj>().osvjezi();
-
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1144,7 +1137,7 @@ class _DijalogBudzetaKategorijeState
     if (broj > widget.maksimalniIznos + 0.001) {
       setState(() {
         _greska =
-            'Maksimalno dostupno je ${formatNovac(widget.maksimalniIznos.toStringAsFixed(2))}';
+            'Dostupno je ${formatNovac(widget.maksimalniIznos.toStringAsFixed(2))}';
       });
       return;
     }
