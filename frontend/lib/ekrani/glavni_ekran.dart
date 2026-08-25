@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
-
 import '../providers/auth_provider.dart';
-
 import 'pregled_ekran.dart';
 import 'racuni_ekran.dart';
 import 'budzet_ekran.dart';
@@ -66,11 +63,9 @@ class _GlavniEkranState
             (i) {
           setState(() {
             _odabraniIndeks = i;
-
             if (i == 1) {
               _racuniOsvjezi++;
             }
-
             if (i == 2) {
               _transakcijeOsvjezi++;
             }

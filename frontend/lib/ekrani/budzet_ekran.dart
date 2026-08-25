@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
-
 import '../modeli/pregled.dart';
 import '../pomocno/format.dart';
 import '../providers/pregled_provider.dart';
@@ -80,7 +78,10 @@ class BudzetEkran extends StatelessWidget {
         context: context,
         builder: (_) => _DijalogBudzetaKategorije(
           kategorije: kategorije,
-          maksimalniIznos: uBroj(p.preostaloZaRaspodjelu),
+          maksimalniIznos: (
+            uBroj(p.budzet ?? '0') -
+            uBroj(p.rasporedenoPoKategorijama)
+          ).clamp(0.0, double.infinity),
         ),
       );
 
@@ -148,9 +149,11 @@ class BudzetEkran extends StatelessWidget {
           kategorije: [kategorija!],
           pocetnaKategorija: kategorija,
           pocetniIznos: stavka.budzet,
-          maksimalniIznos:
-              uBroj(p.preostaloZaRaspodjelu) +
-              uBroj(stavka.budzet ?? '0'),
+          maksimalniIznos: (
+              uBroj(p.budzet ?? '0') -
+              uBroj(p.rasporedenoPoKategorijama) +
+              uBroj(stavka.budzet ?? '0')
+            ).clamp(0.0, double.infinity),
           zakljucajKategoriju: true,
         ),
       );
@@ -464,7 +467,10 @@ class _KarticaBudzet extends StatelessWidget {
     final shema = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final postotak = pregled.postotakBudzeta ?? 0;
+    final budzet = uBroj(pregled.budzet ?? '0');
+    final potroseno = uBroj(pregled.ukupnoTroskovi);
+    final preostalo = budzet - potroseno;
+    final postotak = budzet > 0 ? (potroseno / budzet) * 100 : 0.0;
     final udio = (postotak / 100).clamp(0.0, 1.0);
     final prekoracen = postotak > 100;
 
@@ -514,7 +520,7 @@ class _KarticaBudzet extends StatelessWidget {
 
           Text(
             formatNovac(
-              pregled.preostaloBudzeta ?? '0',
+              preostalo.toStringAsFixed(2),
             ),
             style: textTheme.headlineLarge?.copyWith(
               fontWeight: FontWeight.w800,
@@ -555,7 +561,7 @@ class _KarticaBudzet extends StatelessWidget {
                 ),
               ),
               Text(
-                'od ${formatNovac(pregled.raspoloziviBudzet ?? pregled.budzet!)}',
+                'od ${formatNovac(pregled.budzet!)}',
                 style: textTheme.bodySmall?.copyWith(
                   color: shema.onSurfaceVariant,
                 ),
@@ -565,123 +571,8 @@ class _KarticaBudzet extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          Divider(
-            height: 1,
-            color: shema.outlineVariant.withValues(
-              alpha: 0.6,
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InformacijaBudzeta(
-                  naslov: 'Postavljeni budžet',
-                  vrijednost:
-                      formatNovac(pregled.budzet!),
-                  ikona:
-                      Icons.account_balance_wallet_outlined,
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 42,
-                color: shema.outlineVariant.withValues(
-                  alpha: 0.7,
-                ),
-              ),
-              Expanded(
-                child: _InformacijaBudzeta(
-                  naslov: 'Raspoloživo',
-                  vrijednost: formatNovac(
-                    pregled.raspoloziviBudzet ?? pregled.budzet!,
-                  ),
-                  ikona: Icons.savings_outlined,
-                ),
-              ),
-            ],
-          ),
-
-          if (uBroj(pregled.ukupnoPrihodi) > 0) ...[
-            const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 11,
-              ),
-              decoration: BoxDecoration(
-                color: shema.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.trending_up_rounded,
-                    size: 19,
-                    color: shema.primary,
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      '+${formatNovac(pregled.ukupnoPrihodi)} prihoda ovog mjeseca uključeno je u raspoloživi budžet.',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: shema.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
-    );
-  }
-}
-
-class _InformacijaBudzeta extends StatelessWidget {
-  final String naslov;
-  final String vrijednost;
-  final IconData ikona;
-
-  const _InformacijaBudzeta({
-    required this.naslov,
-    required this.vrijednost,
-    required this.ikona,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final shema = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Icon(
-          ikona,
-          size: 20,
-          color: shema.onSurfaceVariant,
-        ),
-        const SizedBox(height: 7),
-        Text(
-          naslov,
-          style: textTheme.bodySmall?.copyWith(
-            color: shema.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          vrijednost,
-          textAlign: TextAlign.center,
-          style: textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -699,9 +590,7 @@ class _RaspodjelaBudzeta extends StatelessWidget {
     final shema = theme.colorScheme;
 
     final rasporedeno = uBroj(pregled.rasporedenoPoKategorijama);
-    final raspolozivo = uBroj(
-      pregled.raspoloziviBudzet ?? pregled.budzet ?? '0',
-    );
+    final raspolozivo = uBroj(pregled.budzet ?? '0');
 
     final udio = raspolozivo > 0
         ? (rasporedeno / raspolozivo).clamp(0.0, 1.0)
@@ -729,7 +618,11 @@ class _RaspodjelaBudzeta extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                formatNovac(pregled.preostaloZaRaspodjelu),
+                formatNovac(
+                  (raspolozivo - rasporedeno)
+                      .clamp(0.0, double.infinity)
+                      .toStringAsFixed(2),
+                ),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: shema.primary,
@@ -756,7 +649,7 @@ class _RaspodjelaBudzeta extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           Text(
-            '${formatNovac(pregled.rasporedenoPoKategorijama)} raspoređeno od ${formatNovac(pregled.raspoloziviBudzet ?? pregled.budzet ?? '0')}',
+            '${formatNovac(pregled.rasporedenoPoKategorijama)} raspoređeno od ${formatNovac(pregled.budzet ?? '0')}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: shema.onSurfaceVariant,
             ),

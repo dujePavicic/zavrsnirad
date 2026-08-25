@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../modeli/kategorija.dart';
 import '../pomocno/format.dart';
 import '../pomocno/kategorije_redoslijed.dart';
