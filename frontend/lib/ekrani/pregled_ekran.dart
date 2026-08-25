@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
-
 import '../modeli/pregled.dart';
 import '../modeli/transakcija.dart';
 import '../pomocno/format.dart';

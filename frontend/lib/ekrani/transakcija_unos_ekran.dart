@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
-
 import '../modeli/kategorija.dart';
 import '../modeli/transakcija.dart';
 import '../pomocno/format.dart';
@@ -11,28 +9,21 @@ import '../servisi/transakcija_servis.dart';
 
 class TransakcijaUnosEkran extends StatefulWidget {
   final Transakcija? transakcija;
-
   const TransakcijaUnosEkran({
     super.key,
     this.transakcija,
   });
-
   bool get jeUredivanje => transakcija != null;
-
   @override
   State<TransakcijaUnosEkran> createState() => _TransakcijaUnosEkranState();
 }
-
 class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   final _servis = TransakcijaServis();
   final _kategorijaServis = KategorijaServis();
-
   late final TextEditingController _iznosController;
   late final TextEditingController _opisController;
-
   late String _tip;
   late DateTime _datum;
-
   List<Kategorija> _kategorije = [];
   int? _kategorijaId;
   bool _spremam = false;
@@ -40,24 +31,18 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   @override
   void initState() {
     super.initState();
-
     final t = widget.transakcija;
-
     _tip = t?.tip ?? 'TROSAK';
     _datum = DateTime.tryParse(t?.datum ?? '') ?? DateTime.now();
     _kategorijaId = t?.kategorija;
-
     _iznosController = TextEditingController(
       text: t?.iznos.replaceAll('.', ',') ?? '',
     );
-
     _opisController = TextEditingController(
       text: t?.opis ?? '',
     );
-
     _ucitajKategorije(zadrziPostojecu: true);
   }
-
   @override
   void dispose() {
     _iznosController.dispose();

@@ -1,7 +1,5 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../modeli/racun.dart';
 import '../modeli/garancija.dart';
 import '../pomocno/format.dart';
