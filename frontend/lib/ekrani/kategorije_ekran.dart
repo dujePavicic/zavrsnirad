@@ -32,6 +32,8 @@ const _ikoneIzbor = [
   'category',
 ];
 
+// Glavni ekran za upravljanje kategorijama troškova
+
 class KategorijeEkran extends StatefulWidget {
   const KategorijeEkran({super.key});
 
@@ -82,28 +84,25 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
     }
   }
 
+  // Spremi redoslijed vidljivih kategorija u lokalnu pohranu
+
   Future<void> _spremiVidljive() async {
     await spremiVidljive(_vidljive.map((k) => k.id).toList());
   }
-
   void _sakrij(Kategorija k) {
     setState(() {
       _vidljive.removeWhere((x) => x.id == k.id);
       _skrivene.add(k);
     });
-
     _spremiVidljive();
   }
-
   void _prikazi(Kategorija k) {
     setState(() {
       _skrivene.removeWhere((x) => x.id == k.id);
       _vidljive.add(k);
     });
-
     _spremiVidljive();
   }
-
   void _presloziVidljive(int staro, int novo) {
     setState(() {
       if (novo > staro) novo -= 1;
@@ -111,11 +110,10 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
       final k = _vidljive.removeAt(staro);
       _vidljive.insert(novo, k);
     });
-
     _spremiVidljive();
   }
 
-  Future<void> _otvoriUrednik({
+  Future<void> _otvoriUrediKategoriju({
     Kategorija? postojeca,
   }) async {
     final rez = await showModalBottomSheet<_Rezultat>(
@@ -123,7 +121,7 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => _Urednik(
+      builder: (_) => _Uredikategorija(
         postojeca: postojeca,
       ),
     );
@@ -140,14 +138,11 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
           boja: rez.boja,
           ikona: rez.ikona,
         );
-
         final spremljeno = await ucitajVidljive();
-
         if (spremljeno != null) {
           spremljeno.add(nova.id);
           await spremiVidljive(spremljeno);
         }
-
         await _ucitaj();
       } else {
         await _servis.azuriraj(
@@ -156,7 +151,6 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
           boja: rez.boja,
           ikona: rez.ikona,
         );
-
         await _ucitaj();
       }
     } catch (e) {
@@ -176,7 +170,7 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _otvoriUrednik(),
+        onPressed: () => _otvoriUrediKategoriju(),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Nova kategorija'),
       ),
@@ -388,7 +382,7 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
               borderRadius: BorderRadius.circular(12),
               onTap: k.jeSustavska
                   ? null
-                  : () => _otvoriUrednik(
+                  : () => _otvoriUrediKategoriju(
                         postojeca: k,
                       ),
               child: Padding(
@@ -539,7 +533,7 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
               borderRadius: BorderRadius.circular(12),
               onTap: k.jeSustavska
                   ? null
-                  : () => _otvoriUrednik(
+                  : () => _otvoriUrediKategoriju(
                         postojeca: k,
                       ),
               child: Padding(
@@ -567,6 +561,7 @@ class _KategorijeEkranState extends State<KategorijeEkran> {
       ),
     );
   }
+  // Pomoćna metoda za prikaz praznog stanja u kartici
 
   Widget _prazno({
     required IconData ikona,
@@ -623,18 +618,22 @@ class _Rezultat {
   });
 }
 
-class _Urednik extends StatefulWidget {
+// Ekran za dodavanje ili uređivanje kategorije
+
+class _Uredikategorija extends StatefulWidget {
   final Kategorija? postojeca;
 
-  const _Urednik({
+  const _Uredikategorija({
     this.postojeca,
   });
 
   @override
-  State<_Urednik> createState() => _UrednikState();
+  State<_Uredikategorija> createState() => _UredikategorijaState();
 }
 
-class _UrednikState extends State<_Urednik> {
+// Stanje  Uredikategorija za dodavanje ili uređivanje kategorije
+
+class _UredikategorijaState extends State<_Uredikategorija> {
   late final TextEditingController _naziv;
   late String _boja;
   late String _ikona;
@@ -642,11 +641,9 @@ class _UrednikState extends State<_Urednik> {
   @override
   void initState() {
     super.initState();
-
     _naziv = TextEditingController(
       text: widget.postojeca?.naziv ?? '',
     );
-
     _boja = widget.postojeca?.boja ?? _bojeIzbor.first;
     _ikona = widget.postojeca?.ikona ?? _ikoneIzbor.first;
   }
@@ -659,9 +656,7 @@ class _UrednikState extends State<_Urednik> {
 
   void _spremi() {
     final naziv = _naziv.text.trim();
-
     if (naziv.isEmpty) return;
-
     Navigator.pop(
       context,
       _Rezultat(
@@ -671,6 +666,8 @@ class _UrednikState extends State<_Urednik> {
       ),
     );
   }
+
+  // Glavna metoda za izgradnju ekrana za dodavanje ili uređivanje kategorije
 
   @override
   Widget build(BuildContext context) {
@@ -874,6 +871,8 @@ class _UrednikState extends State<_Urednik> {
     );
   }
 }
+
+// Pomoćna klasa za prikaz greške prilikom učitavanja kategorija
 
 class _Greska extends StatelessWidget {
   final String poruka;

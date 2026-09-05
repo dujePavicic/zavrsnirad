@@ -19,6 +19,8 @@ class PregledEkran extends StatefulWidget {
   State<PregledEkran> createState() => _PregledEkranState();
 }
 
+// Stanje ekrana za pregled financija s logikom za učitavanje i prikaz podataka
+
 class _PregledEkranState extends State<PregledEkran> {
   final PregledServis _pregledServis = PregledServis();
   final TransakcijaServis _transakcijaServis = TransakcijaServis();
@@ -107,6 +109,8 @@ class _PregledEkranState extends State<PregledEkran> {
       },
     );
 
+    // Ako korisnik nije odabrao mjesec ili widget više nije montiran, prekini funkciju
+
     if (odabir == null || !mounted) return;
 
     setState(() => _ucitavaMjesec = true);
@@ -166,10 +170,16 @@ class _PregledEkranState extends State<PregledEkran> {
     );
   }
 
+  // Pomoćna metoda za otvaranje detalja povijesnog budžeta u modalnom dnu ekrana
+
   Future<void> _otvoriDetaljPovijesnogBudzeta(Pregled p) async {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
     final imaBudzet = p.budzet != null;
+    final budzet = uBroj(p.budzet ?? '0');
+    final potroseno = uBroj(p.ukupnoTroskovi);
+    final preostalo = budzet - potroseno;
+    final postotak = budzet > 0 ? (potroseno / budzet) * 100 : 0.0;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -213,13 +223,13 @@ class _PregledEkranState extends State<PregledEkran> {
                   _PovijesniBudzetRedak(
                     naslov: 'Preostalo',
                     vrijednost:
-                        formatNovac(p.preostaloBudzeta ?? '0'),
+                        formatNovac(preostalo.toStringAsFixed(2)),
                   ),
                   const SizedBox(height: 10),
                   _PovijesniBudzetRedak(
                     naslov: 'Iskorišteno',
                     vrijednost:
-                        '${(p.postotakBudzeta ?? 0).toStringAsFixed(0)}%',
+                        '${postotak.toStringAsFixed(0)}%',
                   ),
                 ],
               ],
@@ -229,6 +239,8 @@ class _PregledEkranState extends State<PregledEkran> {
       },
     );
   }
+
+  // Pomoćna metoda za formatiranje datuma u ISO 8601 format (YYYY-MM-DD)
 
   String _iso(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -287,6 +299,8 @@ class _PregledEkranState extends State<PregledEkran> {
     );
   }
 
+  
+
   Widget _tijelo(BuildContext context, PregledPruzatelj pruzatelj) {
     if (pruzatelj.pregled == null) {
       if (pruzatelj.greska != null) {
@@ -324,6 +338,8 @@ class _PregledEkranState extends State<PregledEkran> {
       child: _sadrzaj(context, prikaz),
     );
   }
+
+  // Metoda koja gradi sadržaj ekrana za pregled financija, uključujući kartice za potrošnju, budžet, garancije i zadnje transakcije
 
   Widget _sadrzaj(BuildContext context, Pregled p) {
     final theme = Theme.of(context);
@@ -500,6 +516,8 @@ class _PregledEkranState extends State<PregledEkran> {
   }
 }
 
+// Widget koji prikazuje zaglavlje ekrana s nazivom i odabirom mjeseca
+
 class _Zaglavlje extends StatelessWidget {
   final String mjesec;
   final VoidCallback onMjesecTap;
@@ -580,6 +598,8 @@ class _Zaglavlje extends StatelessWidget {
     );
   }
 }
+
+// Widget koji prikazuje glavnu karticu sa sažetkom potrošnje i kružnim grafom
 
 class _GlavnaKartica extends StatelessWidget {
   final Pregled pregled;
@@ -703,6 +723,8 @@ class _GlavnaKartica extends StatelessWidget {
   }
 }
 
+// Widget koji prikazuje kružni grafikon potrošnje po kategorijama
+
 class _Donut extends StatelessWidget {
   final Pregled pregled;
   final ValueChanged<StavkaKategorije>? onKategorijaTap;
@@ -781,7 +803,7 @@ class _Donut extends StatelessWidget {
                   if (pregled.budzet != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      'od ${formatNovac(pregled.raspoloziviBudzet ?? pregled.budzet!)}',
+                      'od ${formatNovac(pregled.budzet!)}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: shema.onSurfaceVariant,
                       ),
@@ -857,6 +879,8 @@ class _Donut extends StatelessWidget {
   }
 }
 
+// Widget koji prikazuje sažetak brze potrošnje (danas i ovaj tjedan) u obliku kartice
+
 class _BrziPregledKartice extends StatelessWidget {
   final String danasPotroseno;
   final String tjedanPotroseno;
@@ -898,6 +922,8 @@ class _BrziPregledKartice extends StatelessWidget {
   }
 }
 
+// Widget koji prikazuje sažetak povijesnog pregleda (ukupno potrošeno, dnevni prosjek) u obliku kartice
+
 class _PovijesniPregledKartice extends StatelessWidget {
   final String ukupnoPotroseno;
   final String dnevniProsjek;
@@ -938,6 +964,8 @@ class _PovijesniPregledKartice extends StatelessWidget {
     );
   }
 }
+
+// Widget koji prikazuje malu karticu sa statistikom 
 
 class _MalaStatistikaKartica extends StatelessWidget {
   final String naslov;
@@ -1037,7 +1065,7 @@ class _MalaStatistikaKartica extends StatelessWidget {
 }
 
 
-
+// Widget koji prikazuje sažetak budžeta u obliku kartice
 
 class _BudzetKartica extends StatelessWidget {
   final Pregled pregled;
@@ -1054,8 +1082,13 @@ class _BudzetKartica extends StatelessWidget {
     final shema = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final imaBudzet = pregled.budzet != null;
-    final postotak = pregled.postotakBudzeta ?? 0;
-    final udio = (postotak / 100).clamp(0.0, 1.0);
+    final budzet = uBroj(pregled.budzet ?? '0');
+    final potroseno = uBroj(pregled.ukupnoTroskovi);
+    final preostalo = budzet - potroseno;
+    final postotak = budzet > 0 ? (potroseno / budzet) * 100 : 0.0;
+    final udio = budzet > 0
+        ? (potroseno / budzet).clamp(0.0, 1.0)
+        : 0.0;
 
     final Color progressBoja;
     if (postotak >= 100) {
@@ -1114,7 +1147,7 @@ class _BudzetKartica extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         imaBudzet
-                            ? 'Preostalo ${formatNovac(pregled.preostaloBudzeta ?? "0")}'
+                            ? 'Preostalo ${formatNovac(preostalo.toStringAsFixed(2))}'
                             : 'Budžet nije bio postavljen',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: shema.onSurfaceVariant,
@@ -1158,6 +1191,8 @@ class _BudzetKartica extends StatelessWidget {
   }
 }
 
+// Redak koji prikazuje pojedinu stavku povijesnog budžeta
+
 class _PovijesniBudzetRedak extends StatelessWidget {
   final String naslov;
   final String vrijednost;
@@ -1199,6 +1234,8 @@ class _PovijesniBudzetRedak extends StatelessWidget {
     );
   }
 }
+
+// Widget koji prikazuje sažetak garancija u obliku kartice
 
 class _GarancijeKartica extends StatelessWidget {
   final GarancijeSazetak sazetak;
@@ -1281,6 +1318,8 @@ class _GarancijeKartica extends StatelessWidget {
   }
 }
 
+// Widget koji prikazuje listu transakcija u obliku kartice
+
 class _TransakcijeKartica extends StatelessWidget {
   final List<Transakcija> transakcije;
   final ValueChanged<Transakcija> onTap;
@@ -1328,6 +1367,8 @@ class _TransakcijeKartica extends StatelessWidget {
     );
   }
 }
+
+// Redak koji prikazuje pojedinu transakciju u listi transakcija
 
 class _TransakcijaRedak extends StatelessWidget {
   final Transakcija transakcija;
@@ -1409,6 +1450,9 @@ class _TransakcijaRedak extends StatelessWidget {
   }
 }
 
+
+// Widget koji prikazuje poruku kada nema transakcija za odabrani period
+
 class _PrazneTransakcije extends StatelessWidget {
   const _PrazneTransakcije();
 
@@ -1463,6 +1507,8 @@ class _PrazneTransakcije extends StatelessWidget {
     );
   }
 }
+
+// Detalji potrošnje sheet koji prikazuje listu transakcija za odabrani period
 
 
 class _DetaljiPotrosnjeSheet extends StatelessWidget {
@@ -1603,6 +1649,8 @@ class _DetaljiPotrosnjeSheet extends StatelessWidget {
   }
 }
 
+// Učitavanje widget koji prikazuje kružni indikator učitavanja
+
 class _Ucitavanje extends StatelessWidget {
   const _Ucitavanje();
 
@@ -1617,6 +1665,8 @@ class _Ucitavanje extends StatelessWidget {
     );
   }
 }
+
+// Greska widget koji prikazuje poruku o grešci i gumb za ponovno učitavanje
 
 class _Greska extends StatelessWidget {
   final String poruka;

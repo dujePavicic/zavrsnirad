@@ -20,6 +20,8 @@ class GlavniEkran
           _GlavniEkranState();
 }
 
+// Stanje glavnog ekrana aplikacije s navigacijom između tabova
+
 class _GlavniEkranState
     extends State<GlavniEkran> {
   int _odabraniIndeks = 0;
@@ -102,6 +104,8 @@ class _GlavniEkranState
     );
   }
 }
+
+// Pomoćna klasa za prikaz profila korisnika 
 
 class _ProfilTab
     extends StatelessWidget {
@@ -374,9 +378,6 @@ class _ProfilTab
               },
             ),
 
-
-            
-
             const SizedBox(
               height: 28,
             ),
@@ -426,6 +427,7 @@ class _ProfilTab
     );
   }
 }
+
 
 class _ProfilnaSlikaMala
     extends StatelessWidget {

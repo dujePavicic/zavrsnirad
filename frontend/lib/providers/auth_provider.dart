@@ -13,27 +13,20 @@ enum AuthStatus {
 
 class AuthPruzatelj extends ChangeNotifier {
   final AuthServis _servis = AuthServis();
-
   final TokenSpremiste _tokenSpremiste =
       TokenSpremiste();
 
   AuthStatus _status = AuthStatus.pocetno;
-
   String? _greska;
-
   Korisnik? _korisnik;
-
   AuthStatus get status => _status;
-
   String? get greska => _greska;
-
   Korisnik? get korisnik => _korisnik;
-
   bool get seUcitava =>
       _status == AuthStatus.ucitavanje;
-
   bool get jePrijavljen =>
       _status == AuthStatus.prijavljen;
+
 
   Future<void> provjeriPrijavu() async {
     final refresh =
@@ -44,7 +37,6 @@ class AuthPruzatelj extends ChangeNotifier {
       notifyListeners();
       return;
     }
-
     try {
       _korisnik =
           await _servis.dohvatiJa();
@@ -54,7 +46,6 @@ class AuthPruzatelj extends ChangeNotifier {
           _korisnik!.id,
         );
       }
-
       _status = AuthStatus.prijavljen;
     } catch (_) {
       _status = AuthStatus.prijavljen;
@@ -74,38 +65,32 @@ class AuthPruzatelj extends ChangeNotifier {
         identifikator: identifikator,
         lozinka: lozinka,
       );
-
       try {
         _korisnik =
             await _servis.dohvatiJa();
       } catch (_) {}
-
       if (_korisnik != null) {
         await spremiTrenutnogKorisnika(
           _korisnik!.id,
         );
       }
-
       _status = AuthStatus.prijavljen;
       _greska = null;
-
       notifyListeners();
-
       return true;
     } on AuthGreska catch (e) {
       _postaviGresku(
         e.poruka,
       );
-
       return false;
     } catch (_) {
       _postaviGresku(
         'Ne mogu se povezati s poslužiteljem.',
       );
-
       return false;
     }
   }
+
 
   Future<bool> registracija({
     required String email,
@@ -158,7 +143,6 @@ class AuthPruzatelj extends ChangeNotifier {
       _postaviGresku(
         'Ne mogu se povezati s poslužiteljem.',
       );
-
       return false;
     }
   }
@@ -179,24 +163,17 @@ class AuthPruzatelj extends ChangeNotifier {
         slikaBytes: slikaBytes,
         nazivSlike: nazivSlike,
       );
-
       _greska = null;
-
       notifyListeners();
-
       return true;
     } on AuthGreska catch (e) {
       _greska = e.poruka;
-
       notifyListeners();
-
       return false;
     } catch (_) {
       _greska =
           'Ne mogu spremiti promjene.';
-
       notifyListeners();
-
       return false;
     }
   }
@@ -205,34 +182,27 @@ class AuthPruzatelj extends ChangeNotifier {
     try {
       _korisnik =
           await _servis.dohvatiJa();
-
       notifyListeners();
     } catch (_) {}
   }
 
   Future<void> odjava() async {
     await _servis.odjavi();
-
     _korisnik = null;
     _status = AuthStatus.odjavljen;
     _greska = null;
-
     notifyListeners();
   }
-
   void _postaviUcitavanje() {
     _status = AuthStatus.ucitavanje;
     _greska = null;
-
     notifyListeners();
   }
-
   void _postaviGresku(
     String poruka,
   ) {
     _greska = poruka;
     _status = AuthStatus.odjavljen;
-
     notifyListeners();
   }
 }

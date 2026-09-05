@@ -39,6 +39,9 @@ class GarancijaUnosEkran extends StatefulWidget {
       _GarancijaUnosEkranState();
 }
 
+
+// Stanje ekrana za unos ili uređivanje garancije
+
 class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
   final _nazivController = TextEditingController();
   final _serijskiController = TextEditingController();
@@ -107,21 +110,18 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
 
   Future<void> _odaberiDatumIsteka() async {
     if (_dozivotna) return;
-
     final pocetni = _datumIsteka ??
         DateTime(
           _datumKupnje.year + 2,
           _datumKupnje.month,
           _datumKupnje.day,
         );
-
     final odabran = await showDatePicker(
       context: context,
       initialDate: pocetni,
       firstDate: _datumKupnje,
       lastDate: DateTime(2200),
     );
-
     if (odabran != null) {
       setState(() => _datumIsteka = odabran);
     }
@@ -129,7 +129,6 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
 
   void _postaviTrajanje(int godine) {
     if (_dozivotna) return;
-
     setState(() {
       _datumIsteka = DateTime(
         _datumKupnje.year + godine,
@@ -141,7 +140,6 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
 
   void _spremi() {
     final naziv = _nazivController.text.trim();
-
     if (naziv.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -176,6 +174,8 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
       ),
     );
   }
+
+  // Glavna metoda za izgradnju unos garancije ekrana
 
   @override
   Widget build(BuildContext context) {
@@ -443,6 +443,8 @@ class _GarancijaUnosEkranState extends State<GarancijaUnosEkran> {
     );
   }
 }
+
+// Pomoćna klasa za prikaz polja s datumom i ikonom
 
 class _DatumPolje extends StatelessWidget {
   final String naslov;

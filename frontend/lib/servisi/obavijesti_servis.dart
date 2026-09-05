@@ -108,7 +108,6 @@ class ObavijestiServis {
       istek.day,
       9,).subtract(Duration(days: korisnik.podsjetnikGarancijeDana),
     );
-
     final lokalniDatum = tz.TZDateTime(
       tz.local,
       datumPodsjetnika.year,
@@ -116,7 +115,6 @@ class ObavijestiServis {
       datumPodsjetnika.day,
       datumPodsjetnika.hour,
     );
-
     if (!lokalniDatum.isAfter(tz.TZDateTime.now(tz.local))) {
       return;
     }

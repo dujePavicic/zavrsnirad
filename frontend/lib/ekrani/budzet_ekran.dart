@@ -10,21 +10,20 @@ import '../servisi/kategorija_servis.dart';
 class BudzetEkran extends StatelessWidget {
   const BudzetEkran({super.key});
 
+// Uređivanje budžeta
+
   Future<void> _urediBudzet(BuildContext context, Pregled p) async {
     final unos = await showDialog<String>(
       context: context,
       builder: (_) => _DijalogBudzeta(pocetni: p.budzet),
     );
-
     if (unos == null) return;
-
     try {
       await BudzetServis().postaviBudzet(
         godina: p.godina,
         mjesec: p.mjesec,
         iznos: unos,
       );
-
       if (context.mounted) {
         await context.read<PregledPruzatelj>().osvjezi();
       }
@@ -38,6 +37,8 @@ class BudzetEkran extends StatelessWidget {
       }
     }
   }
+
+// Dodavanje budžeta kategoriji
 
   Future<void> _dodajBudzetKategorije(
     BuildContext context,
@@ -72,31 +73,30 @@ class BudzetEkran extends StatelessWidget {
         );
         return;
       }
+      // Otvori dijalog za dodavanje budžeta kategoriji
+      // i dohvati rezultat (odabranu kategoriju i iznos)
 
       final rezultat =
           await showDialog<_RezultatBudzetaKategorije>(
         context: context,
         builder: (_) => _DijalogBudzetaKategorije(
           kategorije: kategorije,
+        
           maksimalniIznos: (
             uBroj(p.budzet ?? '0') -
             uBroj(p.rasporedenoPoKategorijama)
           ).clamp(0.0, double.infinity),
         ),
       );
-
       if (rezultat == null) return;
-
       await BudzetServis().postaviBudzetKategorije(
         godina: p.godina,
         mjesec: p.mjesec,
         kategorija: rezultat.kategorija.id,
         iznos: rezultat.iznos,
       );
-
       if (context.mounted) {
         await context.read<PregledPruzatelj>().osvjezi();
-
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -117,6 +117,7 @@ class BudzetEkran extends StatelessWidget {
       }
     }
   }
+// Uređivanje budžeta kategorije
 
   Future<void> _urediBudzetKategorije(
     BuildContext context,
@@ -128,11 +129,8 @@ class BudzetEkran extends StatelessWidget {
           await KategorijaServis().dohvatiKategorije(
         tip: 'TROSAK',
       );
-
       if (!context.mounted) return;
-
       Kategorija? kategorija;
-
       for (final k in kategorije) {
         if (k.id == stavka.kategorija) {
           kategorija = k;
@@ -140,8 +138,9 @@ class BudzetEkran extends StatelessWidget {
         }
       }
 
-      if (kategorija == null) return;
+// Ako kategorija nije pronađena, prekini funkciju
 
+      if (kategorija == null) return;
       final rezultat =
           await showDialog<_RezultatBudzetaKategorije>(
         context: context,
@@ -159,7 +158,6 @@ class BudzetEkran extends StatelessWidget {
       );
 
       if (rezultat == null) return;
-
       await BudzetServis().postaviBudzetKategorije(
         godina: p.godina,
         mjesec: p.mjesec,
@@ -167,9 +165,10 @@ class BudzetEkran extends StatelessWidget {
         iznos: rezultat.iznos,
       );
 
+// Osvježi pregled i prikaži poruku o uspjehu 
+
       if (context.mounted) {
         await context.read<PregledPruzatelj>().osvjezi();
-
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -190,6 +189,8 @@ class BudzetEkran extends StatelessWidget {
       }
     }
   }
+
+// Brisanje budžeta kategorije
 
   Future<void> _obrisiBudzetKategorije(
     BuildContext context,
@@ -224,6 +225,7 @@ class BudzetEkran extends StatelessWidget {
     );
 
     if (potvrda != true) return;
+// Ako je korisnik potvrdio brisanje, pozovi servis za brisanje budžeta kategorije
 
     try {
       await BudzetServis().obrisiBudzetKategorije(
@@ -253,6 +255,7 @@ class BudzetEkran extends StatelessWidget {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -284,14 +287,11 @@ class BudzetEkran extends StatelessWidget {
               context.read<PregledPruzatelj>().osvjezi(),
         );
       }
-
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
-
     final p = pruzatelj.pregled!;
-
     return RefreshIndicator(
       onRefresh: () =>
           context.read<PregledPruzatelj>().osvjezi(),
@@ -382,6 +382,8 @@ class BudzetEkran extends StatelessWidget {
   }
 }
 
+//Postavljanje budžeta
+
 class _KarticaNema extends StatelessWidget {
   final VoidCallback naPostavi;
 
@@ -453,6 +455,7 @@ class _KarticaNema extends StatelessWidget {
   }
 }
 
+// Prikaz budžeta
 class _KarticaBudzet extends StatelessWidget {
   final Pregled pregled;
   final VoidCallback naUredi;
@@ -577,6 +580,8 @@ class _KarticaBudzet extends StatelessWidget {
   }
 }
 
+// Prikaz raspodjele budžeta po kategorijama
+
 class _RaspodjelaBudzeta extends StatelessWidget {
   final Pregled pregled;
 
@@ -660,6 +665,8 @@ class _RaspodjelaBudzeta extends StatelessWidget {
   }
 }
 
+// Prikaz budžeta po kategorijama
+
 class _BudzetiKategorija extends StatelessWidget {
   final Pregled pregled;
   final void Function(StavkaKategorije) naUredi;
@@ -696,6 +703,8 @@ class _BudzetiKategorija extends StatelessWidget {
     );
   }
 }
+
+// Prikaz pojedinačnog budžeta kategorije
 
 class _BudzetKategorijeKartica extends StatelessWidget {
   final StavkaKategorije stavka;
@@ -900,6 +909,8 @@ class _BudzetKategorijeKartica extends StatelessWidget {
   }
 }
 
+// Prikaz kada nema postavljenih budžeta kategorija
+
 class _NemaBudzetaKategorija extends StatelessWidget {
   const _NemaBudzetaKategorija();
 
@@ -961,6 +972,8 @@ class _NemaBudzetaKategorija extends StatelessWidget {
   }
 }
 
+// Dijalog za postavljanje budžeta
+
 class _DijalogBudzeta extends StatefulWidget {
   final String? pocetni;
 
@@ -973,15 +986,15 @@ class _DijalogBudzeta extends StatefulWidget {
       _DijalogBudzetaState();
 }
 
+// Dijalog za postavljanje budžeta kategorije
+
 class _DijalogBudzetaState
     extends State<_DijalogBudzeta> {
   late final TextEditingController _controller;
   String? _greska;
-
   @override
   void initState() {
     super.initState();
-
     _controller = TextEditingController(
       text: widget.pocetni?.replaceAll('.', ',') ?? '',
     );
@@ -992,13 +1005,10 @@ class _DijalogBudzetaState
     _controller.dispose();
     super.dispose();
   }
-
   void _spremi() {
     final tekst =
         _controller.text.trim().replaceAll(',', '.');
-
     final broj = double.tryParse(tekst);
-
     if (broj == null || broj < 0) {
       setState(() {
         _greska = 'Unesi ispravan iznos';
@@ -1011,6 +1021,8 @@ class _DijalogBudzetaState
       broj.toStringAsFixed(2),
     );
   }
+
+  
 
   @override
   Widget build(BuildContext context) {
@@ -1064,6 +1076,8 @@ class _DijalogBudzetaState
   }
 }
 
+// Rezultat dijaloga za postavljanje budžeta kategorije
+
 class _RezultatBudzetaKategorije {
   final Kategorija kategorija;
   final String iznos;
@@ -1073,6 +1087,8 @@ class _RezultatBudzetaKategorije {
     required this.iznos,
   });
 }
+
+// Dijalog za postavljanje budžeta kategorije
 
 class _DijalogBudzetaKategorije
     extends StatefulWidget {
@@ -1095,6 +1111,8 @@ class _DijalogBudzetaKategorije
       _DijalogBudzetaKategorijeState();
 }
 
+// Stanje dijaloga za postavljanje budžeta kategorije
+
 class _DijalogBudzetaKategorijeState
     extends State<_DijalogBudzetaKategorije> {
   late final TextEditingController _controller;
@@ -1105,9 +1123,7 @@ class _DijalogBudzetaKategorijeState
   @override
   void initState() {
     super.initState();
-
     _odabrana = widget.pocetnaKategorija;
-
     _controller = TextEditingController(
       text: widget.pocetniIznos
               ?.replaceAll('.', ',') ??
@@ -1120,7 +1136,6 @@ class _DijalogBudzetaKategorijeState
     _controller.dispose();
     super.dispose();
   }
-
   void _spremi() {
     if (_odabrana == null) {
       setState(() {
@@ -1131,24 +1146,20 @@ class _DijalogBudzetaKategorijeState
 
     final tekst =
         _controller.text.trim().replaceAll(',', '.');
-
     final broj = double.tryParse(tekst);
-
     if (broj == null || broj <= 0) {
       setState(() {
         _greska = 'Unesi ispravan iznos';
       });
       return;
     }
-
     if (broj > widget.maksimalniIznos + 0.001) {
       setState(() {
         _greska =
-            'Maksimalno dostupno je ${formatNovac(widget.maksimalniIznos.toStringAsFixed(2))}';
+            'Dostupno je ${formatNovac(widget.maksimalniIznos.toStringAsFixed(2))}';
       });
       return;
     }
-
     Navigator.pop(
       context,
       _RezultatBudzetaKategorije(
@@ -1157,6 +1168,8 @@ class _DijalogBudzetaKategorijeState
       ),
     );
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -1200,7 +1213,6 @@ class _DijalogBudzetaKategorijeState
           ),
 
           const SizedBox(height: 16),
-
           TextField(
             controller: _controller,
             autofocus: widget.zakljucajKategoriju,
@@ -1244,6 +1256,8 @@ class _DijalogBudzetaKategorijeState
     );
   }
 }
+
+// Prikaz greške prilikom učitavanja podataka
 
 class _Greska extends StatelessWidget {
   final String poruka;

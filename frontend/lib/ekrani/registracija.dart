@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
-
 import '../providers/auth_provider.dart';
 import '../themes/default_tema.dart';
 import '../assets/logo.dart';
@@ -12,6 +10,8 @@ class RegistracijaEkran extends StatefulWidget {
   @override
   State<RegistracijaEkran> createState() => _RegistracijaEkranState();
 }
+
+// Stanje ekrana za registraciju korisnika s logikom za validaciju i registraciju
 
 class _RegistracijaEkranState extends State<RegistracijaEkran> {
   final _obrazac = GlobalKey<FormState>();
@@ -37,11 +37,11 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
     super.dispose();
   }
 
+// Pomoćna metoda za registraciju korisnika s validacijom obrasca 
+
   Future<void> _registrirajSe() async {
     if (!_obrazac.currentState!.validate()) return;
-
     final auth = context.read<AuthPruzatelj>();
-
     final uspjeh = await auth.registracija(
       email: _emailController.text.trim(),
       korisnickoIme: _korisnickoImeController.text.trim(),
@@ -49,9 +49,7 @@ class _RegistracijaEkranState extends State<RegistracijaEkran> {
       prezime: _prezimeController.text.trim(),
       lozinka: _lozinkaController.text,
     );
-
     if (!mounted) return;
-
     if (uspjeh) {
       Navigator.pop(context);
     } else if (auth.greska != null) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../modeli/kategorija.dart';
 import '../modeli/transakcija.dart';
 import '../pomocno/format.dart';
+import '../pomocno/kategorije_redoslijed.dart';
 import '../servisi/kategorija_servis.dart';
 import '../servisi/transakcija_servis.dart';
 import 'transakcija_detalj_ekran.dart';
@@ -20,14 +21,11 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
   final _servis = TransakcijaServis();
   final _kategorijaServis = KategorijaServis();
   final _pretragaController = TextEditingController();
-
   late Future<List<Transakcija>> _buduci;
-
   String? _tip;
   int? _kategorijaId;
   DateTime? _datumOd;
   DateTime? _datumDo;
-
   List<Kategorija> _kategorije = [];
   Timer? _debounce;
 
@@ -37,20 +35,17 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     _buduci = _dohvati();
     _ucitajKategorije();
   }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _buduci = _dohvati();
   }
-
   @override
   void dispose() {
     _debounce?.cancel();
     _pretragaController.dispose();
     super.dispose();
   }
-
   String? get _search {
     final tekst = _pretragaController.text.trim();
     return tekst.isEmpty ? null : tekst;
@@ -58,7 +53,6 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
 
   String _datumIso(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
   Future<List<Transakcija>> _dohvati() {
     return _servis.dohvatiTransakcije(
       tip: _tip,
@@ -70,14 +64,20 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     );
   }
 
+// Pomoćna metoda za učitavanje kategorija iz baze podataka
+
   Future<void> _ucitajKategorije() async {
     try {
-      final kategorije = await _kategorijaServis.dohvatiKategorije();
-
+      final sve = await _kategorijaServis.dohvatiKategorije();
+      final spremljeno = await ucitajVidljive();
+      final p = podijeli(sve, spremljeno);
       if (!mounted) return;
-
       setState(() {
-        _kategorije = kategorije;
+        _kategorije = p.vidljive;
+        if (_kategorijaId != null &&
+            !_kategorije.any((k) => k.id == _kategorijaId)) {
+          _kategorijaId = null;
+        }
       });
     } catch (_) {}
   }
@@ -88,23 +88,22 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     });
   }
 
+// Pomoćna metoda za osvježavanje liste transakcija 
+
   Future<void> _povuciZaOsvjezenje() async {
     final novi = _dohvati();
-
     setState(() {
       _buduci = novi;
     });
-
     await novi;
   }
-
   void _promjenaPretrage(String _) {
     setState(() {});
-
     _debounce?.cancel();
-
     _debounce = Timer(const Duration(milliseconds: 350), _osvjeziListu);
   }
+
+// Pomoćna metoda za otvaranje dodavanja nove transakcije
 
   Future<void> _otvoriDodavanje() async {
     final theme = Theme.of(context);
@@ -180,6 +179,8 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     );
   }
 
+// Pomoćna metoda za otvaranje detalja transakcije
+
   Future<void> _otvoriDetalj(Transakcija transakcija) async {
     final promijenjeno = await Navigator.push<bool>(
       context,
@@ -195,6 +196,8 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     }
   }
 
+
+// Pomoćna metoda za otvaranje filtera
   Future<void> _otvoriFiltere() async {
     int? privremenaKategorija = _kategorijaId;
     DateTime? privremeniOd = _datumOd;
@@ -344,9 +347,7 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
         );
       },
     );
-
     if (spremi != true) return;
-
     setState(() {
       _kategorijaId = privremenaKategorija;
       _datumOd = privremeniOd;
@@ -499,7 +500,6 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
             ),
 
             const SizedBox(height: 6),
-
             Expanded(
               child: FutureBuilder<List<Transakcija>>(
                 future: _buduci,
@@ -540,15 +540,12 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
   Widget _lista(List<Transakcija> transakcije) {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
-
     final grupe = <String, List<Transakcija>>{};
-
     for (final t in transakcije) {
       grupe.putIfAbsent(t.datum, () => []).add(t);
     }
 
     final djeca = <Widget>[];
-
     grupe.forEach((datum, stavke) {
       djeca.add(
         Padding(
@@ -582,7 +579,6 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
         );
       }
     });
-
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
@@ -592,6 +588,8 @@ class _TransakcijeEkranState extends State<TransakcijeEkran> {
     );
   }
 }
+
+// Pomoćna klasa za prikaz prekidača tipa transakcije (trošak ili prihod)
 
 class _TipChip extends StatelessWidget {
   final String tekst;
@@ -631,6 +629,8 @@ class _TipChip extends StatelessWidget {
     );
   }
 }
+
+// Pomoćna klasa za prikaz pojedinačne transakcije u listi
 
 class _TransakcijaRedak extends StatelessWidget {
   final Transakcija transakcija;
@@ -753,6 +753,7 @@ class _TransakcijaRedak extends StatelessWidget {
   }
 }
 
+// Pomoćna klasa za prikaz filtera datuma (odabir datuma)
 class _DatumFilterRedak extends StatelessWidget {
   final String naslov;
   final DateTime? datum;
@@ -822,6 +823,8 @@ String _labelDatuma(String datum) {
   return '${d.day}. ${imeMjeseca(d.month).toLowerCase()} ${d.year}';
 }
 
+// Pomoćna klasa za prikaz praznog stanja kada nema transakcija
+
 class _Prazno extends StatelessWidget {
   final Future<void> Function() naOsvjezi;
 
@@ -873,6 +876,8 @@ class _Prazno extends StatelessWidget {
     );
   }
 }
+
+// Pomoćna klasa za prikaz greške prilikom dohvaćanja transakcija
 
 class _Greska extends StatelessWidget {
   final String poruka;
@@ -931,6 +936,8 @@ class _Greska extends StatelessWidget {
     );
   }
 }
+
+// Pomoćna klasa za prikaz opcija dodavanja transakcije (skeniranje računa ili ručni unos) 
 
 class _DodajOpcija extends StatelessWidget {
   final IconData ikona;

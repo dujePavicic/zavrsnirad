@@ -1,11 +1,8 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
-
 import '../modeli/kategorija.dart';
 import '../servisi/kategorija_servis.dart';
 import '../servisi/racun_servis.dart';
@@ -18,6 +15,8 @@ class SkeniranjeRacunaEkran extends StatefulWidget {
   State<SkeniranjeRacunaEkran> createState() =>
       _SkeniranjeRacunaEkranState();
 }
+
+// Stanje ekrana za skeniranje računa s logikom za OCR, analizu i spremanje
 
 class _SkeniranjeRacunaEkranState
     extends State<SkeniranjeRacunaEkran> {
@@ -56,6 +55,8 @@ class _SkeniranjeRacunaEkranState
     super.initState();
     _ucitajKategorije();
   }
+
+// Pomoćna metoda za učitavanje kategorija troškova i ažuriranje stanja ekrana
 
   Future<void> _ucitajKategorije() async {
     try {
@@ -101,6 +102,8 @@ class _SkeniranjeRacunaEkranState
     _oibController.clear();
   }
 
+// Pomoćna metoda za fotografiranje računa pomoću kamere
+
   Future<void> _fotografirajRacun() async {
     try {
       final slika = await _picker.pickImage(
@@ -128,6 +131,9 @@ class _SkeniranjeRacunaEkranState
       );
     }
   }
+
+
+// Pomoćna metoda za odabir slike računa iz galerije
 
   Future<void> _odaberiIzGalerije() async {
     try {
@@ -157,6 +163,8 @@ class _SkeniranjeRacunaEkranState
     }
   }
 
+// Pomoćna metoda za pokretanje OCR-a na odabranoj slici 
+
   Future<void> _pokreniOcr(XFile slika) async {
     setState(() {
       _obrada = true;
@@ -164,30 +172,23 @@ class _SkeniranjeRacunaEkranState
 
     try {
       final inputImage = InputImage.fromFilePath(slika.path);
-
       final rezultat = await _textRecognizer.processImage(
         inputImage,
       );
-
       final tekst = rezultat.text;
-
       debugPrint(
         '========== OCR POČETAK ==========',
       );
-
       debugPrint(tekst);
-
       debugPrint(
         '=========== OCR KRAJ ===========',
       );
 
       if (tekst.trim().isEmpty) {
         if (!mounted) return;
-
         setState(() {
           _ocistiRezultat();
         });
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -195,22 +196,20 @@ class _SkeniranjeRacunaEkranState
             ),
           ),
         );
-
         return;
       }
+
+// Pokreni analizu prepoznatog teksta
 
       debugPrint(
         '========== ANALIZA POČETAK ==========',
       );
-
       final analiza = await _racunServis.analizirajRacun(
         tekst,
       );
-
       debugPrint(
         analiza.toString(),
       );
-
       debugPrint(
         '=========== ANALIZA KRAJ ===========',
       );
@@ -277,6 +276,7 @@ class _SkeniranjeRacunaEkranState
     }
   }
 
+// Pomoćna metoda za otvaranje slike računa 
   Future<void> _otvoriSliku() async {
     final slika = _slika;
     if (slika == null) return;
@@ -290,6 +290,8 @@ class _SkeniranjeRacunaEkranState
       ),
     );
   }
+
+// Pomoćna metoda za odabir datuma pomoću date picker-a
 
   Future<void> _odaberiDatum() async {
     DateTime pocetniDatum =
@@ -319,9 +321,7 @@ class _SkeniranjeRacunaEkranState
     if (!regex.hasMatch(vrijednost)) {
       return false;
     }
-
     final datum = DateTime.tryParse(vrijednost);
-
     return datum != null &&
         _datumIso(datum) == vrijednost;
   }
@@ -343,19 +343,16 @@ class _SkeniranjeRacunaEkranState
     return dijelovi.join('\n');
   }
 
+// Pomoćna metoda za spremanje računa 
   Future<void> _spremi() async {
     if (_slika == null || _analiza == null) {
       return;
     }
-
     final trgovina = _trgovinaController.text.trim();
-
     final iznosUnos = _iznosController.text
         .trim()
         .replaceAll(',', '.');
-
     final iznosBroj = double.tryParse(iznosUnos);
-
     if (iznosBroj == null || iznosBroj <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -366,9 +363,7 @@ class _SkeniranjeRacunaEkranState
       );
       return;
     }
-
     final datum = _datumController.text.trim();
-
     if (!_datumJeIspravan(datum)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -410,15 +405,11 @@ class _SkeniranjeRacunaEkranState
         datum: datum,
         opis: trgovina,
       );
-
       novaTransakcijaId = transakcija.id;
-
       final slikaBytes = await _slika!.readAsBytes();
-
       final nazivSlike = _slika!.name.trim().isNotEmpty
           ? _slika!.name
           : 'racun.jpg';
-
       await _racunServis.dodajPostojecojTransakciji(
         transakcijaId: transakcija.id,
         slikaBytes: slikaBytes,
@@ -857,6 +848,9 @@ class _SkeniranjeRacunaEkranState
     );
   }
 }
+
+
+// Ekran za pregled računa s mogućnošću zumiranja slike
 
 class _PregledRacunaEkran extends StatelessWidget {
   final String putanja;

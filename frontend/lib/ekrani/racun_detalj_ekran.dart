@@ -28,6 +28,9 @@ class RacunDetaljEkran extends StatefulWidget {
   State<RacunDetaljEkran> createState() => _RacunDetaljEkranState();
 }
 
+
+// Stanje ekrana za detalje računa s logikom za učitavanje povezanih garancija, brisanje računa i dodavanje novih garancija
+
 class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
   final GarancijaServis _garancijaServis = GarancijaServis();
   List<Garancija>? _garancije;
@@ -41,6 +44,7 @@ class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
     _ucitajGarancije();
   }
 
+// Pomoćna metoda za učitavanje povezanih garancija s ovim računom
   Future<void> _ucitajGarancije() async {
     try {
       final lista = await _garancijaServis.dohvatiGarancije(racun: racun.id);
@@ -61,6 +65,8 @@ class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
       await ObavijestiServis().zakaziGaranciju(garancija, korisnik);
     } catch (_) {}
   }
+
+// Pomoćna metoda za brisanje računa ili cijele transakcije s prikazom dijaloga za potvrdu
 
   Future<void> _obrisi(BuildContext context) async {
     final odabir = await showDialog<_OpcijaBrisanja>(
@@ -135,6 +141,8 @@ class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
     }
   }
 
+// Pomoćna metoda za dodavanje nove garancije povezane s ovim računom
+
   Future<void> _dodajGaranciju(BuildContext context) async {
     final rezultat = await Navigator.push<GarancijaFormaPodaci>(
       context,
@@ -191,7 +199,6 @@ class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final shema = theme.colorScheme;
     final boja = bojaIzHexa(racun.kategorijaBoja);
 
     return Scaffold(
@@ -392,6 +399,8 @@ class _RacunDetaljEkranState extends State<RacunDetaljEkran> {
   }
 }
 
+// Pomoćna klasa za prikaz povezanih garancija s ovim računom i opcijom dodavanja novih garancija
+
 class _GarancijeRacunaSekcija extends StatelessWidget {
   final List<Garancija> garancije;
   final bool ucitava;
@@ -528,6 +537,8 @@ class _GarancijeRacunaSekcija extends StatelessWidget {
   }
 }
 
+// Pomoćna klasa za prikaz pregleda slike računa
+
 class _PregledSlikeRacuna extends StatelessWidget {
   final String slikaUrl;
 
@@ -577,6 +588,8 @@ class _PregledSlikeRacuna extends StatelessWidget {
   }
 }
 
+
+// Pomoćna klasa za prikaz informacija o računu
 class _InfoKartica extends StatelessWidget {
   final IconData ikona;
   final Color? bojaIkone;

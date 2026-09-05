@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
-
 import '../providers/auth_provider.dart';
 import '../themes/default_tema.dart';
 import '../assets/logo.dart';
@@ -13,6 +11,8 @@ class PrijavaEkran extends StatefulWidget {
   @override
   State<PrijavaEkran> createState() => _PrijavaEkranState();
 }
+
+// Stanje ekrana za prijavu korisnika s logikom za validaciju i autentifikaciju
 
 class _PrijavaEkranState extends State<PrijavaEkran> {
   final _obrazac = GlobalKey<FormState>();
@@ -28,16 +28,16 @@ class _PrijavaEkranState extends State<PrijavaEkran> {
     super.dispose();
   }
 
+  
+// Pomoćna metoda za prijavu korisnika s validacijom obrasca i prikazom grešaka
+
   Future<void> _prijaviSe() async {
     if (!_obrazac.currentState!.validate()) return;
-
     final auth = context.read<AuthPruzatelj>();
-
     final uspjeh = await auth.prijava(
       identifikator: _identifikatorController.text.trim(),
       lozinka: _lozinkaController.text,
     );
-
     if (!uspjeh && mounted && auth.greska != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

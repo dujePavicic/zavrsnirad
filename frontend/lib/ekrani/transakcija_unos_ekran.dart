@@ -17,6 +17,7 @@ class TransakcijaUnosEkran extends StatefulWidget {
   @override
   State<TransakcijaUnosEkran> createState() => _TransakcijaUnosEkranState();
 }
+
 class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   final _servis = TransakcijaServis();
   final _kategorijaServis = KategorijaServis();
@@ -49,6 +50,8 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
     _opisController.dispose();
     super.dispose();
   }
+
+// Pomoćna metoda za učitavanje kategorija iz baze podataka
 
   Future<void> _ucitajKategorije({
     bool zadrziPostojecu = false,
@@ -84,6 +87,9 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
     _ucitajKategorije();
   }
 
+
+// Pomoćna metoda za odabir datuma transakcije
+
   Future<void> _odaberiDatum() async {
     final odabran = await showDatePicker(
       context: context,
@@ -100,25 +106,22 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   String _datumIso(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+// Pomoćna metoda za spremanje transakcije
+
   Future<void> _spremi() async {
     final iznosTekst = _iznosController.text.trim().replaceAll(',', '.');
     final broj = double.tryParse(iznosTekst);
-
     if (broj == null || broj <= 0) {
       _poruka('Unesi ispravan iznos.');
       return;
     }
-
     if (_kategorijaId == null) {
       _poruka('Odaberi kategoriju.');
       return;
     }
-
     setState(() => _spremam = true);
-
     try {
       late final Transakcija rezultat;
-
       if (widget.transakcija == null) {
         rezultat = await _servis.dodaj(
           tip: _tip,
@@ -137,19 +140,14 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
           opis: _opisController.text.trim(),
         );
       }
-
       if (!mounted) return;
-
       await context.read<PregledPruzatelj>().osvjezi();
-
       if (mounted) {
         Navigator.pop(context, rezultat);
       }
     } catch (e) {
       if (!mounted) return;
-
       setState(() => _spremam = false);
-
       _poruka(
         e.toString().replaceFirst('Exception: ', ''),
       );
@@ -438,6 +436,8 @@ class _TransakcijaUnosEkranState extends State<TransakcijaUnosEkran> {
   }
 }
 
+// Pomoćna klasa za prikaz prekidača tipa transakcije (trošak ili prihod)
+
 class _TipPrekidac extends StatelessWidget {
   final String tip;
   final ValueChanged<String> onPromjena;
@@ -487,6 +487,8 @@ class _TipPrekidac extends StatelessWidget {
     );
   }
 }
+
+// Pomoćna klasa za prikaz opcije tipa transakcije (trošak ili prihod) 
 
 class _TipOpcija extends StatelessWidget {
   final String tekst;

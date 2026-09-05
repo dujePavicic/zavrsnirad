@@ -18,6 +18,8 @@ class ProfilUrediEkran extends StatefulWidget {
       _ProfilUrediEkranState();
 }
 
+// Stanje ekrana za uređivanje profila korisnika s logikom za odabir slike i spremanje promjena
+
 class _ProfilUrediEkranState
     extends State<ProfilUrediEkran> {
   late final TextEditingController _imeController;
@@ -56,6 +58,7 @@ class _ProfilUrediEkranState
 
     super.dispose();
   }
+// Metoda za odabir nove profilne slike iz galerije s validacijom veličine i formata 
 
   Future<void> _odaberiSliku() async {
     final slika = await _picker.pickImage(
@@ -63,14 +66,10 @@ class _ProfilUrediEkranState
       imageQuality: 85,
       maxWidth: 1600,
     );
-
     if (slika == null) return;
-
     final bytes = await slika.readAsBytes();
-
     if (bytes.length > 5 * 1024 * 1024) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -78,25 +77,20 @@ class _ProfilUrediEkranState
           ),
         ),
       );
-
       return;
     }
-
     final ekstenzija = slika.name
         .split('.')
         .last
         .toLowerCase();
-
     const dozvoljeneEkstenzije = [
       'jpg',
       'jpeg',
       'png',
       'webp',
     ];
-
     if (!dozvoljeneEkstenzije.contains(ekstenzija)) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -114,16 +108,15 @@ class _ProfilUrediEkranState
     });
   }
 
+
+// Pomoćna metoda za spremanje promjena profila korisnika s validacijom i prikazom grešaka
   Future<void> _spremi() async {
     final ime =
         _imeController.text.trim();
-
     final prezime =
         _prezimeController.text.trim();
-
     final korisnickoIme =
         _korisnickoImeController.text.trim();
-
     if (ime.isEmpty ||
         prezime.isEmpty ||
         korisnickoIme.isEmpty) {
@@ -134,10 +127,8 @@ class _ProfilUrediEkranState
           ),
         ),
       );
-
       return;
     }
-
     setState(() {
       _sprema = true;
     });
@@ -151,13 +142,10 @@ class _ProfilUrediEkranState
           slikaBytes: _novaSlikaBytes,
           nazivSlike: _novaSlika?.name,
         );
-
     if (!mounted) return;
-
     setState(() {
       _sprema = false;
     });
-
     if (uspjeh) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -166,15 +154,12 @@ class _ProfilUrediEkranState
           ),
         ),
       );
-
       Navigator.pop(context);
       return;
     }
-
     final greska = context
         .read<AuthPruzatelj>()
         .greska;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -336,6 +321,8 @@ class _ProfilUrediEkranState
   }
 }
 
+// Widget koji prikazuje polje za unos teksta s ikonom i oznakom
+
 class _Polje extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -361,6 +348,8 @@ class _Polje extends StatelessWidget {
     );
   }
 }
+
+// Widget koji prikazuje profilnu sliku korisnika s inicijalima kao fallback
 
 class _ProfilnaSlika extends StatelessWidget {
   final Korisnik korisnik;
@@ -394,6 +383,7 @@ class _ProfilnaSlika extends StatelessWidget {
         ),
       );
     }
+
 
     return ClipOval(
       child: SizedBox(

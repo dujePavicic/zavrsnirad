@@ -12,6 +12,8 @@ class PostavkeObavijestiEkran extends StatefulWidget {
       _PostavkeObavijestiEkranState();
 }
 
+// Stanje ekrana za postavke obavijesti s logikom za učitavanje i spremanje postavki
+
 class _PostavkeObavijestiEkranState extends State<PostavkeObavijestiEkran> {
   final AuthServis _authServis = AuthServis();
   final GarancijaServis _garancijaServis = GarancijaServis();
@@ -54,6 +56,8 @@ class _PostavkeObavijestiEkranState extends State<PostavkeObavijestiEkran> {
       );
     }
   }
+
+  // Pomoćna metoda za spremanje postavki obavijesti
 
   Future<void> _spremi() async {
     if (_spremanje) return;
@@ -127,6 +131,8 @@ class _PostavkeObavijestiEkranState extends State<PostavkeObavijestiEkran> {
       }
     }
   }
+
+  // Glavna metoda za izgradnju korisničkog sučelja ekrana za postavke obavijesti
 
   @override
   Widget build(BuildContext context) {

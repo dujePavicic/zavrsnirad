@@ -17,11 +17,9 @@ void main() {
           create: (_) => PregledPruzatelj(),
           update: (_, auth, pregled) {
             final provider = pregled ?? PregledPruzatelj();
-
             if (auth.status != AuthStatus.prijavljen) {
               provider.resetiraj();
             }
-
             return provider;
           },
         ),
@@ -49,11 +47,9 @@ class ZavrsniApp extends StatelessWidget {
 
 class PUTOKAZ extends StatelessWidget {
   const PUTOKAZ({super.key});
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthPruzatelj>();
-
     switch (auth.status) {
       case AuthStatus.pocetno:
         return const Scaffold(
@@ -61,12 +57,10 @@ class PUTOKAZ extends StatelessWidget {
             child: CircularProgressIndicator(),
           ),
         );
-
       case AuthStatus.prijavljen:
         return GlavniEkran(
           key: ValueKey(auth.korisnik?.id),
         );
-
       case AuthStatus.ucitavanje:
       case AuthStatus.odjavljen:
         return const PrijavaEkran();

@@ -21,6 +21,9 @@ class TransakcijaDetaljEkran extends StatefulWidget {
       _TransakcijaDetaljEkranState();
 }
 
+
+// Stanje ekrana za prikaz detalja transakcije 
+
 class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
   late Transakcija _transakcija;
 
@@ -46,6 +49,8 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
       _transakcija = rezultat;
     });
   }
+
+// Pomoćna metoda za brisanje transakcije s potvrdom korisnika
 
   Future<void> _obrisi() async {
     final potvrda = await showDialog<bool>(
@@ -78,21 +83,18 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
       ),
     );
 
-    if (potvrda != true) return;
+// Ako korisnik nije potvrdio brisanje, prikini funkciju
 
+    if (potvrda != true) return;
     try {
       await TransakcijaServis().obrisi(_transakcija.id);
-
       if (!mounted) return;
-
       await context.read<PregledPruzatelj>().osvjezi();
-
       if (mounted) {
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -103,6 +105,8 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
     }
   }
 
+// Pomoćna metoda za dodavanje slike računa uz transakciju
+
   Future<void> _dodajSlikuRacuna() async {
     final picker = ImagePicker();
 
@@ -111,15 +115,10 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
       imageQuality: 88,
       maxWidth: 2200,
     );
-
     if (slika == null || !mounted) return;
-
     final bytes = await slika.readAsBytes();
-
     if (!mounted) return;
-
     final trgovinaController = TextEditingController();
-
     final potvrda = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -171,11 +170,12 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
       ),
     );
 
+// Ako korisnik nije potvrdio dodavanje slike računa, prekini funkciju
+
     if (potvrda != true) {
       trgovinaController.dispose();
       return;
     }
-
     try {
       await RacunServis().dodajPostojecojTransakciji(
         transakcijaId: _transakcija.id,
@@ -184,15 +184,10 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
         trgovina: trgovinaController.text.trim(),
         prepoznatiTekst: '',
       );
-
       trgovinaController.dispose();
-
       if (!mounted) return;
-
       await context.read<PregledPruzatelj>().osvjezi();
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -200,13 +195,10 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
           ),
         ),
       );
-
       Navigator.pop(context, true);
     } catch (e) {
       trgovinaController.dispose();
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -349,7 +341,6 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
   Widget _zaglavlje(BuildContext context) {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
-
     return Row(
       children: [
         IconButton(
@@ -389,6 +380,8 @@ class _TransakcijaDetaljEkranState extends State<TransakcijaDetaljEkran> {
     );
   }
 }
+
+// Pomoćna klasa za prikaz informacija o transakciji
 
 class _InfoKartica extends StatelessWidget {
   final IconData ikona;

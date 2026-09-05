@@ -18,6 +18,9 @@ class GarancijaDetaljEkran extends StatefulWidget {
       _GarancijaDetaljEkranState();
 }
 
+
+// Stanje ekrana za prikaz detalja garancije 
+
 class _GarancijaDetaljEkranState
     extends State<GarancijaDetaljEkran> {
   final GarancijaServis _servis = GarancijaServis();
@@ -32,6 +35,8 @@ class _GarancijaDetaljEkranState
     _garancija = widget.garancija;
   }
 
+  // Uređivanje garancije
+
   Future<void> _uredi() async {
     final podaci = await Navigator.push<GarancijaFormaPodaci>(
       context,
@@ -43,6 +48,8 @@ class _GarancijaDetaljEkranState
     );
 
     if (podaci == null || !mounted) return;
+
+// Ažuriranje garancije i zakazivanje obavijesti
 
     try {
       final azurirana = await _servis.azuriraj(
@@ -56,18 +63,13 @@ class _GarancijaDetaljEkranState
         obavijesti: podaci.dozivotna ? false : podaci.obavijesti,
         racun: podaci.racunId,
       );
-
       final korisnik = await _auth.dohvatiJa();
-
       await _obavijesti.zakaziGaranciju(
         azurirana,
         korisnik,
       );
-
       if (!mounted) return;
-
       setState(() => _garancija = azurirana);
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Garancija je ažurirana.'),
@@ -75,7 +77,6 @@ class _GarancijaDetaljEkranState
       );
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -85,6 +86,8 @@ class _GarancijaDetaljEkranState
       );
     }
   }
+
+  // Brisanje garancije
 
   Future<void> _obrisi() async {
     final potvrda = await showDialog<bool>(
@@ -108,8 +111,9 @@ class _GarancijaDetaljEkranState
       ),
     );
 
-    if (potvrda != true) return;
+  // Ako korisnik nije potvrdio brisanje, prekini funkciju
 
+    if (potvrda != true) return;
     try {
       await _servis.obrisi(_garancija.id);
       await _obavijesti.otkaziGaranciju(_garancija.id);
@@ -130,6 +134,8 @@ class _GarancijaDetaljEkranState
     }
   }
 
+  // Formatiranje datuma za prikaz
+
   String _datumPrikaz(String datum) {
     final d = DateTime.tryParse(datum);
 
@@ -142,6 +148,8 @@ class _GarancijaDetaljEkranState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shema = theme.colorScheme;
+
+// Određivanje statusa garancije i boje statusa
 
     final statusTekst = _garancija.dozivotna
         ? 'Doživotna'
@@ -285,6 +293,9 @@ class _GarancijaDetaljEkranState
                         : 'Račun #${_garancija.racunId}',
               ),
             ],
+
+            // Prikaz podsjetnika i napomene ako postoje 
+            
             const SizedBox(height: 10),
             _InfoKartica(
               ikona: _garancija.obavijesti
@@ -311,6 +322,8 @@ class _GarancijaDetaljEkranState
     );
   }
 }
+
+// Kartica koja prikazuje informaciju o garanciji
 
 class _InfoKartica extends StatelessWidget {
   final IconData ikona;

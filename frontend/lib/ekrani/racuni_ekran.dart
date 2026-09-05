@@ -28,6 +28,7 @@ class RacuniEkran extends StatefulWidget {
   @override
   State<RacuniEkran> createState() => _RacuniEkranState();
 }
+// Stanje ekrana za prikaz računa 
 
 class _RacuniEkranState extends State<RacuniEkran> {
   final _servis = RacunServis();
@@ -61,6 +62,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
     _pretragaController.dispose();
     super.dispose();
   }
+
+// Pomoćna metoda za učitavanje vidljivih kategorija i ažuriranje stanja ekrana
 
   Future<void> _ucitajKategorije() async {
     try {
@@ -101,6 +104,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
     _debounce = Timer(const Duration(milliseconds: 350), _osvjeziListu);
   }
 
+// Pomoćna metoda za osvježavanje liste računa s trenutnim filterima i pretragom
+
   Future<void> _povuciZaOsvjezenje() async {
     final novi = _servis.dohvatiRacune(
       search: _upit,
@@ -131,6 +136,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
       _osvjeziListu();
     }
   }
+
+// Pomoćna metoda za otvaranje izbornika za dodavanje novog računa
 
   Future<void> _otvoriDodavanje() async {
     final theme = Theme.of(context);
@@ -206,6 +213,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
     );
   }
 
+// Pomoćna metoda za zakazivanje obavijesti o garanciji u pozadini
+
   Future<void> _zakaziObavijestUpozadini(Garancija garancija) async {
     try {
       final korisnik = await _authServis.dohvatiJa();
@@ -213,6 +222,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
     } catch (_) {}
   }
 
+
+// Pomoćna metoda za otvaranje ekrana za dodavanje nove garancije 
   Future<void> _otvoriDodavanjeGarancije() async {
     final rezultat = await Navigator.push<GarancijaFormaPodaci>(
       context,
@@ -222,6 +233,8 @@ class _RacuniEkranState extends State<RacuniEkran> {
     );
 
     if (rezultat == null || !mounted) return;
+
+    // Ako je rezultat uspješan, dodaj novu garanciju i osvježi listu
 
     try {
       final garancija = await _garancijaServis.dodaj(
