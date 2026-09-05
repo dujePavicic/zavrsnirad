@@ -34,6 +34,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
   final _servis = RacunServis();
   final _kategorijaServis = KategorijaServis();
   final _pretragaController = TextEditingController();
+  final _pretragaGarancijaController = TextEditingController();
   final _garancijaServis = GarancijaServis();
   final _authServis = AuthServis();
   final _obavijestiServis = ObavijestiServis();
@@ -60,6 +61,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
   void dispose() {
     _debounce?.cancel();
     _pretragaController.dispose();
+    _pretragaGarancijaController.dispose();
     super.dispose();
   }
 
@@ -89,6 +91,11 @@ class _RacuniEkranState extends State<RacuniEkran> {
     return t.isEmpty ? null : t;
   }
 
+  String? get _upitGarancija {
+    final t = _pretragaGarancijaController.text.trim();
+    return t.isEmpty ? null : t;
+  }
+
   void _osvjeziListu() {
     setState(() {
       _buduci = _servis.dohvatiRacune(
@@ -102,6 +109,23 @@ class _RacuniEkranState extends State<RacuniEkran> {
     setState(() {});
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), _osvjeziListu);
+  }
+
+  void _osvjeziListuGarancija() {
+    setState(() {
+      _buduceGarancije = _garancijaServis.dohvatiGarancije(
+        search: _upitGarancija,
+      );
+    });
+  }
+
+  void _naPromjenuPretrageGarancija(String _) {
+    setState(() {});
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      _osvjeziListuGarancija,
+    );
   }
 
 // Pomoćna metoda za osvježavanje liste računa s trenutnim filterima i pretragom
@@ -280,7 +304,9 @@ class _RacuniEkranState extends State<RacuniEkran> {
   }
 
   Future<void> _osvjeziGarancije() async {
-    final novi = _garancijaServis.dohvatiGarancije();
+    final novi = _garancijaServis.dohvatiGarancije(
+      search: _upitGarancija,
+    );
 
     setState(() => _buduceGarancije = novi);
 
@@ -302,7 +328,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
     } else if (mounted) {
       setState(() {
         _buduceGarancije =
-            _garancijaServis.dohvatiGarancije();
+            _garancijaServis.dohvatiGarancije(search: _upitGarancija);
       });
     }
   }
@@ -383,6 +409,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
                     _pretragaController.clear();
                     _osvjeziListu();
                   },
+                  hintText: 'Pretraži po trgovini...',
                 ),
               ),
               const SizedBox(height: 14),
@@ -417,6 +444,20 @@ class _RacuniEkranState extends State<RacuniEkran> {
                 ),
               ),
             ] else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _Pretraga(
+                  controller: _pretragaGarancijaController,
+                  onChanged: _naPromjenuPretrageGarancija,
+                  onSubmitted: (_) => _osvjeziListuGarancija(),
+                  onClear: () {
+                    _pretragaGarancijaController.clear();
+                    _osvjeziListuGarancija();
+                  },
+                  hintText: 'Pretraži garancije...',
+                ),
+              ),
+              const SizedBox(height: 14),
               Expanded(
                 child: FutureBuilder<List<Garancija>>(
                   future: _buduceGarancije,
@@ -439,6 +480,7 @@ class _RacuniEkranState extends State<RacuniEkran> {
                     if (garancije.isEmpty) {
                       return _PrazneGarancije(
                         onDodaj: _otvoriDodavanjeGarancije,
+                        pretragaAktivna: _upitGarancija != null,
                       );
                     }
 
@@ -607,12 +649,14 @@ class _Pretraga extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClear;
+  final String hintText;
 
   const _Pretraga({
     required this.controller,
     required this.onChanged,
     required this.onSubmitted,
     required this.onClear,
+    required this.hintText,
   });
 
   @override
@@ -626,7 +670,7 @@ class _Pretraga extends StatelessWidget {
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
-        hintText: 'Pretraži po trgovini...',
+        hintText: hintText,
         prefixIcon: const Icon(Icons.search_rounded),
         suffixIcon: controller.text.isEmpty
             ? null
@@ -1119,9 +1163,11 @@ class _GarancijeLista extends StatelessWidget {
 
 class _PrazneGarancije extends StatelessWidget {
   final VoidCallback? onDodaj;
+  final bool pretragaAktivna;
 
   const _PrazneGarancije({
     this.onDodaj,
+    this.pretragaAktivna = false,
   });
 
   @override
@@ -1151,7 +1197,9 @@ class _PrazneGarancije extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Text(
-          'Još nema spremljenih garancija',
+          pretragaAktivna
+              ? 'Nema pronađenih garancija'
+              : 'Još nema spremljenih garancija',
           textAlign: TextAlign.center,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
@@ -1159,7 +1207,9 @@ class _PrazneGarancije extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          'Garancije proizvoda koje spremiš prikazat će se ovdje.',
+          pretragaAktivna
+              ? 'Nijedna garancija ne odgovara unesenom pojmu pretrage.'
+              : 'Garancije proizvoda koje spremiš prikazat će se ovdje.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: shema.onSurfaceVariant,
